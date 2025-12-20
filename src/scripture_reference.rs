@@ -88,6 +88,23 @@ impl TryFrom<&str> for Book {
     }
 }
 
+impl Book {
+    pub fn chapters(&self) -> u8 {
+        match self {
+            Book::Genesis => 50,
+            Book::Exodus => 40,
+            Book::FirstKings => 39,
+            Book::SongOfSongs => 8,
+            Book::Obadiah => 1,
+            Book::Matthew => 28,
+        }
+    }
+
+    pub fn chapter_verses(&self, chapter: impl TryInto<Chapter, Error = &'static str>) -> u8 {
+        todo!()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct VersePhrase(pub u8);
 
@@ -116,11 +133,11 @@ impl TryFrom<char> for VersePhrase {
 /// assert_eq!(VerseNumber::try_from(1), Ok(VerseNumber(1)));
 /// ```
 #[derive(Debug, PartialEq, Eq)]
-pub struct VerseNumber(pub u16);
+pub struct VerseNumber(pub u8);
 
-impl TryFrom<u16> for VerseNumber {
+impl TryFrom<u8> for VerseNumber {
     type Error = &'static str;
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value < 1 || value > 175 {
             Err("Verse number is invalid; must be positive and not be greater than 175")
         } else {
@@ -179,12 +196,12 @@ pub enum VerseRange {
 }
 
 #[derive(Debug)]
-pub struct Chapter(pub u16);
+pub struct Chapter(pub u8);
 
-impl TryFrom<u16> for Chapter {
+impl TryFrom<u8> for Chapter {
     type Error = &'static str;
 
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value < 1 || value > 150 {
             Err("Chapter out of range; must be positive and not greater than 150")
         } else {

@@ -1,1 +1,8 @@
 /target
+
+# Add for subcrates
+target/
+debug/
+
+# Added for Libraries
+Cargo.lock

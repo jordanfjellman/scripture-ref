@@ -5,4 +5,5 @@ edition = "2024"
 license = "GPL-3.0-or-later"
 
 [dependencies]
+scripture-ref-derive = { path = "scripture-ref-derive" }
 thiserror = "2.0.17"

@@ -1,9 +1,30 @@
 // TODO: import instead
-#[derive(Debug, Clone, Copy)]
+#[derive(scripture_ref_derive::Book, Debug, Clone, Copy)]
 #[repr(u8)]
 pub(crate) enum Book {
+    #[chapters = "50"]
+    #[verses = "31,25,24,26,32,22,24,22,29,32,32,20,18,24,21,16,27,33,38,18,34,24,20,67,34,35,46,22,35,43,55,32,20,31,29,43,36,30,23,23,57,38,34,34,28,34,31,22,33,26"]
     Genesis = 1,
-    Exodus,
+
+    #[chapters = "40"]
+    #[verses = "23,35,29,15,33,34,28,23,23,35,35,27,22,22,25,33,22,24,19,16,31,21,15,22,29,22,31,29,20,23,28,20,18,23,16,31,23,17,22,16"]
+    Exodus = 2,
+
+    #[chapters = "22"]
+    #[verses = "53,46,28,20,32,38,51,66,28,29,43,33,34,31,34,34,24,46,21,43,29,54"]
+    FirstKings = 11,
+
+    #[chapters = "8"]
+    #[verses = "17,17,13,16,17,15,20,14"]
+    SongOfSongs = 22,
+
+    #[chapters = "1"]
+    #[verses = "21"]
+    Obadiah = 31,
+
+    #[chapters = "28"]
+    #[verses = "25,23,17,25,48,34,29,34,38,42,30,50,58,36,39,28,27,35,30,34,46,46,39,51,46,75,66,20"]
+    Matthew = 40,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -84,11 +105,23 @@ impl ChapterNumber {
             Ok(ChapterNumber(value))
         }
     }
+
+    pub(crate) fn get(&self) -> u8 {
+        self.0
+    }
 }
 
 impl VerseNumber {
-    pub(crate) fn new(value: u8) -> Self {
-        Self(value)
+    pub(crate) fn new(value: u8) -> Result<Self, &'static str> {
+        if !(1u8..=176u8).contains(&value) {
+            Err("verse out of range; must be positive and not greater than 176")
+        } else {
+            Ok(VerseNumber(value))
+        }
+    }
+
+    pub(crate) fn get(&self) -> u8 {
+        self.0
     }
 }
 
@@ -227,6 +260,11 @@ impl Chapter {
     pub fn new(book: Book, number: ChapterNumber) -> Result<Self, String> {
         Ok(Self { book, number })
     }
+
+    pub fn max_verse_count(&self) -> Result<u8, String> {
+        let chapter = self.number.get();
+        self.book.max_verses_in_chapter(chapter)
+    }
 }
 
 impl std::default::Default for ChapterNumber {
@@ -237,7 +275,7 @@ impl std::default::Default for ChapterNumber {
 
 impl std::fmt::Display for ChapterNumber {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.get())
     }
 }
 
@@ -260,15 +298,20 @@ impl std::default::Default for VerseNumber {
 
 impl std::fmt::Display for VerseNumber {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.get())
     }
 }
 
 impl std::fmt::Display for Book {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // This is treated as code so it's english-only, like error messages.
         match self {
             Book::Genesis => write!(f, "Genesis"),
             Book::Exodus => write!(f, "Exodus"),
+            Book::FirstKings => write!(f, "1 Kings"),
+            Book::SongOfSongs => write!(f, "Song of Songs"),
+            Book::Obadiah => write!(f, "Obadiah"),
+            Book::Matthew => write!(f, "Matthew"),
         }
     }
 }
@@ -354,9 +397,70 @@ impl From<ScripturePassageRef> for ScriptureRef {
     }
 }
 
+impl From<Chapter> for ScripturePassageRef {
+    fn from(chapter: Chapter) -> Self {
+        Self::builder()
+            .start_at(
+                ScriptureVerseRef::builder()
+                    .book(chapter.book)
+                    .chapter(chapter.number)
+                    .verse(VerseNumber::default())
+                    .build()
+                    .unwrap(),
+            )
+            .end_at(
+                ScriptureVerseRef::builder()
+                    .book(chapter.book)
+                    .chapter(chapter.number)
+                    .verse(chapter.max_verse_count().unwrap().try_into().unwrap())
+                    .build()
+                    .unwrap(),
+            )
+            .build()
+            .unwrap()
+    }
+}
+
 impl From<ScriptureSelectionRef> for ScriptureRef {
     fn from(value: ScriptureSelectionRef) -> Self {
         Self::Selection(value)
+    }
+}
+
+impl TryFrom<&str> for Book {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let normalized = value.to_lowercase(); // TODO: Avoid allocation
+
+        #[cfg(feature = "lang-en")]
+        match normalized.as_str() {
+            "genesis" | "gen" | "gn" => Ok(Book::Genesis),
+            "1 kings" => Ok(Book::FirstKings),
+            "song of songs" | "song of solomon" => Ok(Book::SongOfSongs),
+            "obadiah" => Ok(Book::Obadiah),
+            "matthew" => Ok(Book::Matthew),
+            _ => Err(format!("not a valid book: {}", value)),
+        }
+
+        #[cfg(not(any(feature = "lang-en")))]
+        compile_error!("at least one language feature must be enabled (e.g., lang-en)");
+    }
+}
+
+impl TryFrom<u8> for ChapterNumber {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        ChapterNumber::new(value)
+    }
+}
+
+impl TryFrom<u8> for VerseNumber {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        VerseNumber::new(value)
     }
 }
 
@@ -382,6 +486,25 @@ mod tests {
         #[test]
         fn chapter_number_invalid_above(n in 151u8..=255u8) {
             prop_assert!(ChapterNumber::new(n).is_err());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn verse_number_valid_range(n in 1u8..=176u8) {
+            let result = VerseNumber::new(n);
+            prop_assert!(result.is_ok());
+            prop_assert_eq!(result.unwrap().0, n);
+        }
+
+        #[test]
+        fn verse_number_invalid_below(n in 0u8..1u8) {
+            prop_assert!(VerseNumber::new(n).is_err());
+        }
+
+        #[test]
+        fn verse_number_invalid_above(n in 177u8..=255u8) {
+            prop_assert!(VerseNumber::new(n).is_err());
         }
     }
 }

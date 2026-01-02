@@ -13,7 +13,7 @@ impl BookEnumData {
         let Data::Enum(data_enum) = &input.data else {
             return Err(Error::new_spanned(
                 input,
-                "Book can only be derived for enums",
+                "'Book' can only be derived for enums",
             ));
         };
 
@@ -58,7 +58,7 @@ impl BookEnumData {
                 pub fn max_verses_in_chapter(&self, chapter: u8) -> Result<u8, String> {
                     let verses = self.max_verse_count_by_chapter();
                     if chapter < 1 || chapter > verses.len() as u8 {
-                        Err(format!("Chapter {} is out of range for {:?}", chapter, self))
+                        Err(format!("{:?} does not have chapter {}", self, chapter))
                     } else {
                         Ok(verses[chapter as usize - 1])
                     }

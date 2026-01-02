@@ -44,12 +44,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", ScriptureRef::from(verse_ref));
 
-    for chapter_num in 1..=Book::Genesis.chapter_count() {
-        let chapter_as_passage = ScripturePassageRef::from(Chapter::new(
-            Book::Genesis,
-            ChapterNumber::new(chapter_num)?,
-        )?);
-        println!("{chapter_as_passage}");
+    for book in Book::old_testament() {
+        for chapter_num in 1..=book.chapter_count() {
+            let chapter_as_passage =
+                ScripturePassageRef::from(Chapter::new(*book, ChapterNumber::new(chapter_num)?)?);
+            println!("OT: {chapter_as_passage}");
+        }
+    }
+
+    for book in Book::new_testament() {
+        for chapter_num in 1..=book.chapter_count() {
+            let chapter_as_passage =
+                ScripturePassageRef::from(Chapter::new(*book, ChapterNumber::new(chapter_num)?)?);
+            println!("NT: {chapter_as_passage}");
+        }
+    }
+
+    for book in Book::bible() {
+        for chapter_num in 1..=book.chapter_count() {
+            let chapter_as_passage =
+                ScripturePassageRef::from(Chapter::new(*book, ChapterNumber::new(chapter_num)?)?);
+            println!("Bible: {chapter_as_passage}");
+        }
     }
 
     Ok(())

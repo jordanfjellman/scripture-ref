@@ -1,5 +1,5 @@
 // TODO: import instead
-#[derive(scripture_ref_derive::Book, Debug, Clone, Copy)]
+#[derive(scripture_ref_derive::Book, Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub(crate) enum Book {
     #[chapters = "50"]
@@ -30,7 +30,7 @@ pub(crate) enum Book {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct ChapterNumber(u8);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct Chapter {
     book: Book,
     number: ChapterNumber,
@@ -95,6 +95,48 @@ pub(crate) struct ScripturePassageRefBuilder {
 #[derive(Debug)]
 pub(crate) struct ScriptureSelectionRefBuilder {
     selection: Vec<SelectionPart>,
+}
+
+impl Book {
+    const OLD_TESTAMENT: [Self; 5] = [
+        // TODO: update to 39
+        Self::Genesis,
+        Self::Exodus,
+        Self::FirstKings,
+        Self::SongOfSongs,
+        Self::Obadiah,
+    ];
+
+    const NEW_TESTAMENT: [Self; 1] = [Self::Matthew]; // TODO: update to 27
+
+    const BIBLE: [Self; 6] = {
+        // TODO: update to 66
+        let mut all = [Book::Genesis; 6];
+        let mut i = 0;
+        while i < Self::OLD_TESTAMENT.len() {
+            all[i] = Self::OLD_TESTAMENT[i];
+            i += 1;
+        }
+        let mut j = 0;
+        while j < Self::NEW_TESTAMENT.len() {
+            all[i] = Self::NEW_TESTAMENT[j];
+            i += 1;
+            j += 1;
+        }
+        all
+    };
+
+    pub fn old_testament() -> &'static [Self] {
+        &Self::OLD_TESTAMENT
+    }
+
+    pub fn new_testament() -> &'static [Self] {
+        &Self::NEW_TESTAMENT
+    }
+
+    pub fn bible() -> &'static [Self] {
+        &Self::BIBLE
+    }
 }
 
 impl ChapterNumber {
@@ -208,7 +250,7 @@ impl ScripturePassageRefBuilder {
     }
 
     pub fn build(&self) -> Result<ScripturePassageRef, String> {
-        // TODO: can I handle unordered verse refs?
+        // TODO: should I handle misorderd or unordered verse refs?
         let start = self
             .start
             .ok_or_else(|| "starting verse ref is required".to_string())?;
@@ -346,8 +388,25 @@ impl std::fmt::Display for ScriptureVerseRef {
 
 impl std::fmt::Display for ScripturePassageRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: optimize, handle removing book and chapter duplicates (probably done using ref ids)
-        write!(f, "{}-{}", self.start, self.end)
+        // TODO: optimize, probably done using ref ids
+        if self.start.verse.chapter == self.end.verse.chapter {
+            write!(
+                f,
+                "{} {}",
+                self.start.verse.book, self.start.verse.chapter.number
+            )
+        } else if self.start.verse.book == self.end.verse.book {
+            write!(
+                f,
+                "{} {}:{}-{}",
+                self.start.verse.book,
+                self.start.verse.chapter,
+                self.start.verse.verse,
+                self.end.verse.verse
+            )
+        } else {
+            write!(f, "{}-{}", self.start, self.end)
+        }
     }
 }
 

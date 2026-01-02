@@ -6,7 +6,7 @@ pub(crate) enum Book {
     Exodus,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct ChapterNumber(u8);
 
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +36,7 @@ pub(crate) enum SelectionPart {
 
 // TODO: import instead
 #[derive(Debug)]
-enum ScriptureRef {
+pub(crate) enum ScriptureRef {
     Verse(ScriptureVerseRef),
     Passage(ScripturePassageRef),
     Selection(ScriptureSelectionRef),
@@ -77,8 +77,12 @@ pub(crate) struct ScriptureSelectionRefBuilder {
 }
 
 impl ChapterNumber {
-    pub(crate) fn new(value: u8) -> Self {
-        Self(value)
+    pub(crate) fn new(value: u8) -> Result<Self, &'static str> {
+        if !(1u8..=150u8).contains(&value) {
+            Err("chapter out of range; must be positive and not greater than 150")
+        } else {
+            Ok(ChapterNumber(value))
+        }
     }
 }
 
@@ -328,11 +332,56 @@ impl std::fmt::Display for ScriptureSelectionRef {
     }
 }
 
+impl std::fmt::Display for ScriptureRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScriptureRef::Verse(v) => write!(f, "{}", v),
+            ScriptureRef::Passage(p) => write!(f, "{}", p),
+            ScriptureRef::Selection(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl From<ScriptureVerseRef> for ScriptureRef {
+    fn from(value: ScriptureVerseRef) -> Self {
+        Self::Verse(value)
+    }
+}
+
+impl From<ScripturePassageRef> for ScriptureRef {
+    fn from(value: ScripturePassageRef) -> Self {
+        Self::Passage(value)
+    }
+}
+
+impl From<ScriptureSelectionRef> for ScriptureRef {
+    fn from(value: ScriptureSelectionRef) -> Self {
+        Self::Selection(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
 
-    #[test]
-    fn test_scripture_verse_ref_builder() {
-        unimplemented!()
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn chapter_number_valid_range(n in 1u8..=150u8) {
+            let result = ChapterNumber::new(n);
+            prop_assert!(result.is_ok());
+            prop_assert_eq!(result.unwrap().0, n);
+        }
+
+        #[test]
+        fn chapter_number_invalid_below(n in 0u8..1u8) {
+            prop_assert!(ChapterNumber::new(n).is_err());
+        }
+
+        #[test]
+        fn chapter_number_invalid_above(n in 151u8..=255u8) {
+            prop_assert!(ChapterNumber::new(n).is_err());
+        }
     }
 }

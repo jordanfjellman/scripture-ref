@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 
+[features]
+default = ["lang-en"]
+lang-en = []
+
 [dependencies]
 scripture-ref-derive = { path = "scripture-ref-derive" }
 thiserror = "2.0.17"
+
+[dev-dependencies]
+proptest = "1"
+proptest-derive = "0.7"

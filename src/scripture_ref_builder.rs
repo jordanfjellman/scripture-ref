@@ -1,4 +1,3 @@
-// TODO: import instead
 #[derive(scripture_ref_derive::Book, Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub(crate) enum Book {
@@ -36,17 +35,17 @@ pub(crate) struct Chapter {
     number: ChapterNumber,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct VerseNumber(u8);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct Verse {
     book: Book,
     chapter: Chapter,
     verse: VerseNumber,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct VersePart(u8);
 
 #[derive(Debug, Clone)]
@@ -63,7 +62,7 @@ pub(crate) enum ScriptureRef {
     Selection(ScriptureSelectionRef),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct ScriptureVerseRef {
     verse: Verse,
     verse_part: Option<VersePart>,
@@ -140,9 +139,11 @@ impl Book {
 }
 
 impl ChapterNumber {
-    pub(crate) fn new(value: u8) -> Result<Self, &'static str> {
+    pub(crate) fn new(value: u8) -> Result<Self, String> {
         if !(1u8..=150u8).contains(&value) {
-            Err("chapter out of range; must be positive and not greater than 150")
+            Err(format!(
+                "chapter {value} is out of range; must be positive and not greater than 150"
+            ))
         } else {
             Ok(ChapterNumber(value))
         }
@@ -154,9 +155,11 @@ impl ChapterNumber {
 }
 
 impl VerseNumber {
-    pub(crate) fn new(value: u8) -> Result<Self, &'static str> {
+    pub(crate) fn new(value: u8) -> Result<Self, String> {
         if !(1u8..=176u8).contains(&value) {
-            Err("verse out of range; must be positive and not greater than 176")
+            Err(format!(
+                "verse {value} out of range; must be positive and not greater than 176"
+            ))
         } else {
             Ok(VerseNumber(value))
         }
@@ -200,14 +203,35 @@ impl ScriptureVerseRefBuilder {
         self
     }
 
+    pub fn try_book<T>(self, book: T) -> Result<Self, T::Error>
+    where
+        T: TryInto<Book>,
+    {
+        Ok(self.book(book.try_into()?))
+    }
+
     pub fn chapter(mut self, chapter: ChapterNumber) -> Self {
         self.chapter = Some(chapter);
         self
     }
 
+    pub fn try_chapter<T>(self, chapter: T) -> Result<Self, T::Error>
+    where
+        T: TryInto<ChapterNumber>,
+    {
+        Ok(self.chapter(chapter.try_into()?))
+    }
+
     pub fn verse(mut self, verse: VerseNumber) -> Self {
         self.verse = Some(verse);
         self
+    }
+
+    pub fn try_verse<T>(self, verse: T) -> Result<Self, T::Error>
+    where
+        T: TryInto<VerseNumber>,
+    {
+        Ok(self.verse(verse.try_into()?))
     }
 
     pub fn build(&self) -> Result<ScriptureVerseRef, String> {
@@ -389,7 +413,9 @@ impl std::fmt::Display for ScriptureVerseRef {
 impl std::fmt::Display for ScripturePassageRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: optimize, probably done using ref ids
-        if self.start.verse.chapter == self.end.verse.chapter {
+        if self.start.verse == self.end.verse {
+            write!(f, "{}", self.start)
+        } else if self.start.verse.chapter == self.end.verse.chapter {
             write!(
                 f,
                 "{} {}",
@@ -421,11 +447,16 @@ impl std::fmt::Display for SelectionPart {
 
 impl std::fmt::Display for ScriptureSelectionRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut parts = self.clone().parts();
+        // TODO: should dedup be done on construction instead? (feels like misplaced logic)
+        parts.dedup_by(|a, b| match (a, b) {
+            (SelectionPart::Verse(a), SelectionPart::Verse(b)) => a == b,
+            _ => false, // TODO: handle passages
+        });
         write!(
             f,
             "{}",
-            self.clone() // TODO: find a way to avoid cloning
-                .parts()
+            parts
                 .iter()
                 .map(|p| p.to_string())
                 .collect::<Vec<String>>()
@@ -486,6 +517,23 @@ impl From<ScriptureSelectionRef> for ScriptureRef {
     }
 }
 
+// #[derive(Debug)]
+// pub(crate) struct IntoBookError(String);
+//
+// impl From<String> for IntoBookError {
+//     fn from(value: String) -> Self {
+//         Self(value)
+//     }
+// }
+//
+// impl std::fmt::Display for IntoBookError {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "{}", self.0)
+//     }
+// }
+//
+// impl std::error::Error for IntoBookError {}
+
 impl TryFrom<&str> for Book {
     type Error = String;
 
@@ -508,7 +556,7 @@ impl TryFrom<&str> for Book {
 }
 
 impl TryFrom<u8> for ChapterNumber {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         ChapterNumber::new(value)
@@ -516,7 +564,7 @@ impl TryFrom<u8> for ChapterNumber {
 }
 
 impl TryFrom<u8> for VerseNumber {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         VerseNumber::new(value)

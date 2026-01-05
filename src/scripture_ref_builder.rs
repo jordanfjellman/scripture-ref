@@ -1,3 +1,21 @@
+// Genesis 1:1 is the scripture reference for the following verse.
+// |-----------------------------------------------------|
+// In the beginning God created the heavens and the earth.
+//
+// The position of the start and the end of the scripture reference is defined by a u32 value.
+// 0b0001_0001_0001_0000 -> 0b0001_0001_0002_0000 (exclusive comparision for the end)
+//
+// But this is difficult to validate, because at the end of chapters or books, the "next verse u8"
+// may not exist.
+//
+// Genesis 1:1b is the Scripture Reference sub-part for the following verse.
+//                 |------------------------------------|
+// In the beginning God created the heavens and the earth.
+//
+
+// TODO: should there be a concept of "ordered" vs "unordered" books?
+// TODO: how should sorting be handled or books be validated across canons?
+//
 #[derive(scripture_ref_derive::Book, Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub(crate) enum Book {
@@ -96,6 +114,109 @@ pub(crate) struct ScriptureSelectionRefBuilder {
     selection: Vec<SelectionPart>,
 }
 
+pub(crate) struct ScripturePosition(u32);
+
+impl ScripturePosition {
+    pub(crate) fn new(
+        book: Book,
+        chapter: ChapterNumber,
+        verse: VerseNumber,
+        phrase: Option<VersePart>,
+    ) -> Self {
+        let position = (book as u32) << 24
+            | (chapter.get() as u32) << 16
+            | (verse.get() as u32) << 8
+            | (phrase.map(|p| p.get() as u32).unwrap_or(0));
+        Self(position)
+    }
+
+    pub(crate) fn get(&self) -> u32 {
+        self.0
+    }
+}
+
+pub(crate) trait Spanned {
+    type Position;
+    type Error;
+    fn start(&self) -> Result<Self::Position, Self::Error>;
+    fn end(&self) -> Result<Self::Position, Self::Error>;
+}
+
+impl Spanned for Book {
+    type Position = ScripturePosition;
+
+    type Error = String;
+
+    fn start(&self) -> Result<Self::Position, Self::Error> {
+        Ok(ScripturePosition::new(
+            *self,
+            ChapterNumber::default(),
+            VerseNumber::default(),
+            None,
+        ))
+    }
+
+    fn end(&self) -> Result<Self::Position, Self::Error> {
+        let last_chapter: ChapterNumber = self.chapter_count().try_into()?;
+        let last_verse = self.max_verses_in_chapter(last_chapter.get())?.try_into()?;
+        Ok(ScripturePosition::new(
+            *self,
+            last_chapter,
+            last_verse,
+            Some(VersePart::max()),
+        ))
+    }
+}
+
+impl Spanned for Chapter {
+    type Position = ScripturePosition;
+
+    type Error = String;
+
+    fn start(&self) -> Result<Self::Position, Self::Error> {
+        Ok(ScripturePosition::new(
+            self.book,
+            self.number,
+            VerseNumber::default(),
+            None,
+        ))
+    }
+
+    fn end(&self) -> Result<Self::Position, Self::Error> {
+        let last_verse = self.max_verse_count()?.try_into()?;
+        Ok(ScripturePosition::new(
+            self.book,
+            self.number,
+            last_verse,
+            Some(VersePart::max()),
+        ))
+    }
+}
+
+impl Spanned for Verse {
+    type Position = ScripturePosition;
+
+    type Error = String;
+
+    fn start(&self) -> Result<Self::Position, Self::Error> {
+        Ok(ScripturePosition::new(
+            self.book,
+            self.chapter.number,
+            self.verse,
+            None,
+        ))
+    }
+
+    fn end(&self) -> Result<Self::Position, Self::Error> {
+        Ok(ScripturePosition::new(
+            self.book,
+            self.chapter.number,
+            self.verse,
+            Some(VersePart::max()),
+        ))
+    }
+}
+
 impl Book {
     const OLD_TESTAMENT: [Self; 5] = [
         // TODO: update to 39
@@ -167,6 +288,27 @@ impl VerseNumber {
 
     pub(crate) fn get(&self) -> u8 {
         self.0
+    }
+}
+
+// TODO: should this be more similar to the Verse type?
+impl VersePart {
+    pub(crate) fn new(value: u8) -> Result<Self, String> {
+        if !(b'a'..=b'd').contains(&value) {
+            Err(format!(
+                "verse phrase {value} is not valid, must be a single letter from a to d"
+            ))
+        } else {
+            Ok(Self(value))
+        }
+    }
+
+    pub(crate) fn get(&self) -> u8 {
+        self.0
+    }
+
+    pub(crate) fn max() -> Self {
+        Self(b'd') // TODO: share max logic
     }
 }
 
@@ -472,6 +614,12 @@ impl std::fmt::Display for ScriptureRef {
             ScriptureRef::Passage(p) => write!(f, "{}", p),
             ScriptureRef::Selection(s) => write!(f, "{}", s),
         }
+    }
+}
+
+impl std::fmt::Display for ScripturePosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get())
     }
 }
 

@@ -2,7 +2,7 @@ mod scripture_ref_builder;
 
 use scripture_ref_builder::{
     Book, Chapter, ChapterNumber, ScripturePassageRef, ScriptureRef, ScriptureSelectionRef,
-    ScriptureVerseRef, VerseNumber,
+    ScriptureVerseRef, Spanned, Verse, VerseNumber, VersePart,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -49,9 +49,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .verse(VerseNumber::new(24)?)
         .build()?;
 
-    println!("{}", ScriptureRef::from(verse_ref));
+    println!("{}\n\n", ScriptureRef::from(verse_ref));
 
-    print!("\n\n");
     println!("Old Testament");
     println!("=============");
     for book in Book::old_testament() {
@@ -61,8 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             print!("{chapter_as_passage}, ");
         }
     }
-
     print!("\n\n");
+
     println!("New Testament");
     println!("=============");
     for book in Book::new_testament() {
@@ -72,8 +71,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             print!("{chapter_as_passage}, ");
         }
     }
-
     print!("\n\n");
+
     println!("Bible");
     println!("=====");
     for book in Book::bible() {
@@ -83,6 +82,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             print!("{chapter_as_passage}, ");
         }
     }
+    print!("\n\n");
+
+    let book = Book::Genesis;
+    println!(
+        "{}\t\t {:#032b} -> {:#032b}",
+        book,
+        book.start()?.get(),
+        book.end()?.get()
+    );
+
+    let chapter = Chapter::new(Book::Genesis, ChapterNumber::new(2)?)?;
+    println!(
+        "{}\t {:#032b} -> {:#032b}",
+        chapter,
+        chapter.start()?.get(),
+        chapter.end()?.get()
+    );
+
+    let verse = Verse::new(Book::Genesis, ChapterNumber::new(3)?, VerseNumber::new(3)?)?;
+    println!(
+        "{}\t {:#032b} -> {:#032b}",
+        verse,
+        verse.start()?.get(),
+        verse.end()?.get()
+    );
+
+    let verse_part = VersePart::new(b'a')?;
+    println!("Verse Part: {verse_part}");
 
     Ok(())
 }

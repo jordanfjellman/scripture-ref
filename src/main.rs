@@ -1,9 +1,14 @@
+mod bvc;
+mod canon;
 mod scripture_ref_builder;
+mod scripture_span;
 
+use bvc::{Book, Chapter, ChapterNumber, Spanned, Verse, VerseNumber, VersePartLabel};
+use canon::{InCanon, ProtestantCanon};
 use scripture_ref_builder::{
-    Book, Chapter, ChapterNumber, ScripturePassageRef, ScriptureRef, ScriptureSelectionRef,
-    ScriptureVerseRef, Spanned, Verse, VerseNumber, VersePart,
+    ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
 };
+use scripture_span::SpannedScripture;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let verse_ref = ScriptureVerseRef::builder()
@@ -100,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         chapter.end()?.get()
     );
 
-    let verse = Verse::new(Book::Genesis, ChapterNumber::new(3)?, VerseNumber::new(3)?)?;
+    let verse: Verse = Verse::new(Book::Genesis, ChapterNumber::new(3)?, VerseNumber::new(3)?)?;
     println!(
         "{}\t {:#032b} -> {:#032b}",
         verse,
@@ -108,8 +113,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         verse.end()?.get()
     );
 
-    let verse_part = VersePart::new(b'a')?;
+    let verse_part = VersePartLabel::new(b'a')?;
     println!("Verse Part: {verse_part}");
+
+    let canon = ProtestantCanon;
+    let book = Book::Genesis;
+    let book_span = InCanon::new(book, &canon);
+
+    println!("Book Span");
+    println!("=========");
+    println!("{:#034b}", book_span.start_position()?.as_raw());
+    println!("{:#034b}\n", book_span.end_position()?.as_raw());
+
+    let chapter = Chapter::new(book, ChapterNumber::new(50)?)?;
+    let chapter_span = InCanon::new(chapter, &canon);
+
+    println!("Chapter Span");
+    println!("============");
+    println!("{:#034b}", chapter_span.start_position()?.as_raw());
+    println!("{:#034b}", chapter_span.end_position()?.as_raw());
 
     Ok(())
 }

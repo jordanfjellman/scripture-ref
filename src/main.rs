@@ -116,6 +116,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let verse_part = VersePartLabel::new(b'a')?;
     println!("Verse Part: {verse_part}");
 
+    // TODO: I could parse scripture references without a canon, but could not validate ranges
+    // across books.
     let canon = ProtestantCanon;
     let book = Book::Genesis;
     let book_span = InCanon::new(book, &canon);
@@ -132,6 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("============");
     println!("{:#034b}", chapter_span.start_position()?.as_raw());
     println!("{:#034b}", chapter_span.end_position()?.as_raw());
+    println!("{:?}", chapter_span.span()?);
 
     Ok(())
 }

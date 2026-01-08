@@ -1,5 +1,6 @@
 use crate::{
-    Book, Chapter,
+    Book, Chapter, Verse,
+    bvc::VersePart,
     canon::{Canon, InCanon},
 };
 
@@ -19,6 +20,31 @@ pub(crate) enum ScriptureEnd {
 
     /// A non-real position used to create virtual boundaries - useful for comparisons
     VirtualBoundary(u32),
+}
+
+pub(crate) struct ScriptureEndBuilder<'c, C: Canon> {
+    canon: &'c C,
+    book: Option<Book>,
+    chapter: Option<Chapter>,
+    verse: Option<Verse>,
+    verse_part: Option<VersePart>,
+}
+
+impl<'c, C: Canon> ScriptureEndBuilder<'c, C> {
+    pub fn new(canon: &'c C) -> Self {
+        Self {
+            canon,
+            book: None,
+            chapter: None,
+            verse: None,
+            verse_part: None,
+        }
+    }
+
+    pub fn build(self) -> Result<ScriptureEnd, String> {
+        // Move from least specific to most specific
+        todo!()
+    }
 }
 
 #[derive(Debug)]
@@ -78,10 +104,11 @@ impl<'c, C: Canon> Iterator for InCanon<'c, Book, C> {
 
 impl<'c, C: Canon> SpannedScripture for InCanon<'c, Book, C> {
     fn start_position(&self) -> Result<ScripturePosition, String> {
-        match self.canon.book_position(self.inner) {
-            Some(pos) => Ok(ScripturePosition::new(pos, 0, 0, 0)),
-            None => Err(format!("book {} is not in the canon", self.inner)),
-        }
+        let pos = self
+            .canon
+            .book_position(self.inner)
+            .ok_or(format!("book {} is not in the canon", self.inner))?;
+        Ok(ScripturePosition::new(pos, 0, 0, 0))
     }
 
     fn end_position(&self) -> Result<ScriptureEnd, String> {
@@ -102,10 +129,12 @@ impl<'c, C: Canon> SpannedScripture for InCanon<'c, Book, C> {
 
 impl<'c, C: Canon> SpannedScripture for InCanon<'c, Chapter, C> {
     fn start_position(&self) -> Result<ScripturePosition, String> {
-        match self.canon.book_position(self.inner.book) {
-            Some(pos) => Ok(ScripturePosition::new(pos, self.inner.number.get(), 0, 0)),
-            None => Err(format!("book {} is not in the canon", self.inner)),
-        }
+        let book_pos = self
+            .canon
+            .book_position(self.inner.book)
+            .ok_or(format!("book {} is not in the canon", self.inner.book))?;
+        let chapter_pos = ScripturePosition::new(book_pos, self.inner.number.get(), 0, 0);
+        Ok(chapter_pos)
     }
 
     fn end_position(&self) -> Result<ScriptureEnd, String> {
@@ -113,19 +142,18 @@ impl<'c, C: Canon> SpannedScripture for InCanon<'c, Chapter, C> {
         let book_pos = self
             .canon
             .book_position(self.inner.book)
-            .expect("book is in canon");
+            .ok_or(format!("book {} is not in the canon", self.inner.book))?;
         if self.inner.number.get() == chapter_count {
-            let next_pos = book_pos + 1;
-            let end_pos = self.canon.book_at_position(next_pos).map_or(
+            let next_book_pos = book_pos + 1;
+            let end_pos = self.canon.book_at_position(next_book_pos).map_or(
                 ScriptureEnd::VirtualBoundary(u32::MAX),
                 |_| {
-                    ScriptureEnd::NextPosition(ScripturePosition::new(next_pos, 0, 0, 0)) // TODO:
-                    // ensure using 0-based chapter number doesn't cause conflicts
+                    // TODO: ensure using 0-based chapter number doesn't cause conflicts
+                    ScriptureEnd::NextPosition(ScripturePosition::new(next_book_pos, 0, 0, 0))
                 },
             );
             Ok(end_pos)
         } else {
-            println!("Chapter {} vs {}", self.inner.number.get(), chapter_count);
             assert!(self.inner.number.get() < chapter_count);
             Ok(ScriptureEnd::NextPosition(ScripturePosition::new(
                 book_pos,
@@ -134,6 +162,82 @@ impl<'c, C: Canon> SpannedScripture for InCanon<'c, Chapter, C> {
                 0,
             )))
         }
+    }
+}
+
+impl<'c, C: Canon> SpannedScripture for InCanon<'c, Verse, C> {
+    fn start_position(&self) -> Result<ScripturePosition, String> {
+        let book_pos: u8 = self
+            .canon
+            .book_position(self.inner.book)
+            .ok_or(format!("book {} is not in the canon", self.inner.book))?;
+        let verse_pos = ScripturePosition::new(
+            book_pos,
+            self.inner.chapter.number.get(),
+            self.inner.verse.get(),
+            0,
+        );
+        Ok(verse_pos)
+    }
+
+    fn end_position(&self) -> Result<ScriptureEnd, String> {
+        let chapter_count = self.inner.book.chapter_count();
+        // TODO: Should manuscript differences be handled here?
+        // From a span perspective, I doubt the exceptions are relevant.
+        // This may be a different trait, so that library implementors can specify additional exceptions.
+        let max_verse_count = self
+            .inner
+            .book
+            .max_verses_in_chapter(self.inner.chapter.number.get())?;
+        let book_pos = self
+            .canon
+            .book_position(self.inner.book)
+            .ok_or(format!("book {} is not in the canon", self.inner.book))?;
+        let is_last_verse = self.inner.verse.get() == max_verse_count;
+        let is_last_chapter = self.inner.chapter.number.get() == chapter_count;
+        todo!()
+        // match (is_last_verse, is_last_chapter) {
+        //     (true, true) => {
+        //     let next_book_pos = book_pos + 1;
+        //     let end_pos = self.canon.book_at_position(next_book_pos).map_or(
+        //         ScriptureEnd::VirtualBoundary(u32::MAX),
+        //         |_| {
+        //             // TODO: ensure using 0-based chapter number doesn't cause conflicts
+        //             ScriptureEnd::NextPosition(ScripturePosition::new(next_book_pos, 0, 0, 0))
+        //         },
+        //     );
+        //     Ok(end_pos)
+        //
+        //     },
+        //     (true, false) => Ok(ScriptureEnd::NextPosition(ScripturePosition::new(
+        //         book_pos,
+        //         self.inner.chapter.number.get() + 1,
+        //         0,
+        //         0,
+        //     ))),
+        //     (false, true) => Ok(ScriptureEnd::NextPosition(ScripturePosition::new(
+        //         book_pos,
+        //         self.inner.chapter.number.get() + 1,
+        //         0,
+        //         0,
+        //     ))),
+        //     _ => Ok(ScriptureEnd::NextPosition(ScripturePosition::new(
+        //         book_pos,
+        //         self.inner.verse.get() + 1,
+        //         0,
+        //         0,
+        //     ))),
+        // }
+    }
+}
+
+impl<'c, C: Canon> SpannedScripture for InCanon<'c, VersePart, C> {
+    fn start_position(&self) -> Result<ScripturePosition, String> {
+        todo!()
+    }
+
+    fn end_position(&self) -> Result<ScriptureEnd, String> {
+        todo!()
     }
 }
 

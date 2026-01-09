@@ -8,7 +8,7 @@ use canon::{InCanon, ProtestantCanon};
 use scripture_ref_builder::{
     ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
 };
-use scripture_span::SpannedScripture;
+use scripture_span::ScriptureSpan;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let verse_ref = ScriptureVerseRef::builder()
@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         book.end()?.get()
     );
 
-    let chapter = Chapter::new(Book::Genesis, ChapterNumber::new(2)?)?;
+    let chapter = Chapter::new(Book::Genesis, ChapterNumber::new(50)?)?;
     println!(
         "{}\t {:#032b} -> {:#032b}",
         chapter,
@@ -119,22 +119,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: I could parse scripture references without a canon, but could not validate ranges
     // across books.
     let canon = ProtestantCanon;
-    let book = Book::Genesis;
+    let book = Book::Revelation;
     let book_span = InCanon::new(book, &canon);
 
     println!("Book Span");
     println!("=========");
-    println!("{:#034b}", book_span.start_position()?.as_raw());
-    println!("{:#034b}\n", book_span.end_position()?.as_raw());
+    println!("{:#034b}", book_span.start_position()?.get());
+    println!("{:#034b}\n", book_span.end_position()?.get());
 
-    let chapter = Chapter::new(book, ChapterNumber::new(50)?)?;
+    let chapter = Chapter::new(book, ChapterNumber::new(22)?)?;
     let chapter_span = InCanon::new(chapter, &canon);
 
     println!("Chapter Span");
     println!("============");
-    println!("{:#034b}", chapter_span.start_position()?.as_raw());
-    println!("{:#034b}", chapter_span.end_position()?.as_raw());
-    println!("{:?}", chapter_span.span()?);
+    println!("{:#034b}", chapter_span.start_position()?.get());
+    println!("{:#034b}\n", chapter_span.end_position()?.get());
+
+    let verse = Verse::new(book, chapter.number, VerseNumber::new(21)?)?;
+    let verse_span = InCanon::new(verse, &canon);
+
+    println!("Verse Span");
+    println!("============");
+    println!("{:#034b}", verse_span.start_position()?.get());
+    println!("{:#034b}", verse_span.end_position()?.get());
 
     Ok(())
 }

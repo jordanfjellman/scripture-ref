@@ -1,16 +1,18 @@
 use crate::Book;
 
-pub(crate) trait Canon {
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ProtestantCanon;
+
+pub(crate) trait Canonical {
     const ORDERED_BOOKS: &'static [Book];
 
     fn ordered_books(&self) -> &'static [Book];
     fn book_position(&self, book: Book) -> Option<u8>;
     fn book_at_position(&self, position: u8) -> Option<Book>;
+    // fn to_canon(&self) -> Canon;
 }
 
-pub(crate) struct ProtestantCanon;
-
-impl Canon for ProtestantCanon {
+impl Canonical for ProtestantCanon {
     const ORDERED_BOOKS: &'static [Book] = &[
         Book::Genesis,
         Book::Exodus,
@@ -18,6 +20,7 @@ impl Canon for ProtestantCanon {
         Book::SongOfSongs,
         Book::Obadiah,
         Book::Matthew,
+        Book::Revelation,
     ];
 
     fn ordered_books(&self) -> &'static [Book] {
@@ -38,14 +41,18 @@ impl Canon for ProtestantCanon {
     fn book_at_position(&self, position: u8) -> Option<Book> {
         self.ordered_books().get(position as usize).map(|b| *b)
     }
+
+    // fn to_canon(&self) -> Canon {
+    //     Canon::Protestant
+    // }
 }
 
-pub(crate) struct InCanon<'c, T, C: Canon> {
+pub(crate) struct InCanon<'c, T, C: Canonical> {
     pub(crate) inner: T,
     pub(crate) canon: &'c C,
 }
 
-impl<'c, T, C: Canon> InCanon<'c, T, C> {
+impl<'c, T, C: Canonical> InCanon<'c, T, C> {
     pub fn new(inner: T, canon: &'c C) -> Self {
         Self { inner, canon }
     }

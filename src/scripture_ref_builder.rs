@@ -229,8 +229,8 @@ impl std::fmt::Display for ScripturePassageRef {
                 "{} {}:{}-{}",
                 self.start.verse.book,
                 self.start.verse.chapter,
-                self.start.verse.verse,
-                self.end.verse.verse
+                self.start.verse.number,
+                self.end.verse.number
             )
         } else {
             write!(f, "{}-{}", self.start, self.end)

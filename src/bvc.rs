@@ -48,6 +48,10 @@ pub(crate) enum Book {
     #[chapters = "28"]
     #[verses = "25,23,17,25,48,34,29,34,38,42,30,50,58,36,39,28,27,35,30,34,46,46,39,51,46,75,66,20"]
     Matthew = 40,
+
+    #[chapters = "22"]
+    #[verses = "20,29,22,11,14,17,17,13,21,11,19,18,18,20,8,21,18,24,21,15,27,21"]
+    Revelation = 66,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -66,7 +70,7 @@ pub(crate) struct VerseNumber(u8);
 pub(crate) struct Verse {
     pub(crate) book: Book,
     pub(crate) chapter: Chapter,
-    pub(crate) verse: VerseNumber,
+    pub(crate) number: VerseNumber,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -99,6 +103,34 @@ impl ScripturePosition {
 
     pub(crate) fn get(&self) -> u32 {
         self.0
+    }
+}
+
+pub(crate) trait HasBook {
+    fn book(&self) -> Book;
+}
+
+impl HasBook for Book {
+    fn book(&self) -> Book {
+        *self
+    }
+}
+
+impl HasBook for Chapter {
+    fn book(&self) -> Book {
+        self.book
+    }
+}
+
+impl HasBook for Verse {
+    fn book(&self) -> Book {
+        self.book
+    }
+}
+
+impl HasBook for VersePart {
+    fn book(&self) -> Book {
+        self.book
     }
 }
 
@@ -169,7 +201,7 @@ impl Spanned for Verse {
         Ok(ScripturePosition::new(
             self.book,
             self.chapter.number,
-            self.verse,
+            self.number,
             None,
         ))
     }
@@ -178,7 +210,7 @@ impl Spanned for Verse {
         Ok(ScripturePosition::new(
             self.book,
             self.chapter.number,
-            self.verse,
+            self.number,
             Some(VersePartLabel::max()),
         ))
     }
@@ -244,7 +276,15 @@ impl ChapterNumber {
 
 impl Chapter {
     pub fn new(book: Book, number: ChapterNumber) -> Result<Self, String> {
-        Ok(Self { book, number })
+        if book.chapter_count() < number.get() {
+            Err(format!(
+                "{book} has {} chapters, not {}",
+                book.chapter_count(),
+                number.get(),
+            ))
+        } else {
+            Ok(Self { book, number })
+        }
     }
 
     pub fn max_verse_count(&self) -> Result<u8, String> {
@@ -305,11 +345,20 @@ impl std::fmt::Display for ChapterNumber {
 impl Verse {
     pub fn new(book: Book, chapter: ChapterNumber, verse: VerseNumber) -> Result<Self, String> {
         let chapter = Chapter::new(book, chapter)?;
-        Ok(Self {
-            book,
-            chapter,
-            verse,
-        })
+        let max_verse_count = chapter.max_verse_count()?;
+        if max_verse_count < verse.get() {
+            Err(format!(
+                "{chapter} has at most {} verses, not {}",
+                max_verse_count,
+                verse.get(),
+            ))
+        } else {
+            Ok(Self {
+                book,
+                chapter,
+                number: verse,
+            })
+        }
     }
 }
 
@@ -335,6 +384,7 @@ impl std::fmt::Display for Book {
             Book::SongOfSongs => write!(f, "Song of Songs"),
             Book::Obadiah => write!(f, "Obadiah"),
             Book::Matthew => write!(f, "Matthew"),
+            Book::Revelation => write!(f, "Revelation"),
         }
     }
 }
@@ -347,7 +397,7 @@ impl std::fmt::Display for Chapter {
 
 impl std::fmt::Display for Verse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}:{}", self.book, self.chapter.number, self.verse)
+        write!(f, "{} {}:{}", self.book, self.chapter.number, self.number)
     }
 }
 

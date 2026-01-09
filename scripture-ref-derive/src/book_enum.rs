@@ -32,11 +32,22 @@ impl BookEnumData {
 
 impl BookEnumData {
     pub fn generate(&self) -> proc_macro2::TokenStream {
+        let book_impl = self.generate_book_impl();
+        let book_series_enum = self.generate_book_series_enum();
+        let book_series_impl = self.generate_book_series_impl();
+
+        quote! {
+            #book_impl
+            #book_series_enum
+            #book_series_impl
+        }
+    }
+
+    fn generate_book_impl(&self) -> proc_macro2::TokenStream {
         let enum_name = &self.name;
-        #[allow(unused_variables)]
         let chapters_arms = self.generate_chapters_arms();
-        #[allow(unused_variables)]
         let verses_arms = self.generate_verses_arms();
+        let canonical_name_arms = self.generate_canonical_name_arms();
 
         quote! {
             impl #enum_name {
@@ -44,6 +55,17 @@ impl BookEnumData {
                 pub fn chapter_count(&self) -> u8 {
                     match self {
                         #(#chapters_arms)*
+                    }
+                }
+
+                /// Returns the canonical name of the book.
+                ///
+                /// For example, the canonical name of Genesis is "Genesis".
+                /// The canonical name of 1 Kings is "Kings".
+                /// The canonical name of 2 Timothy is "Timothy".
+                pub fn canonical_name(&self) -> &'static str {
+                    match self {
+                        #(#canonical_name_arms)*
                     }
                 }
 
@@ -72,6 +94,26 @@ impl BookEnumData {
                 }
             }
         }
+    }
+
+    fn generate_canonical_name_arms(&self) -> Vec<proc_macro2::TokenStream> {
+        let enum_name = &self.name;
+        self.variants
+            .iter()
+            .map(|v| {
+                let variant_name = &v.name;
+                let canonical_name = &v
+                    .series
+                    .as_ref()
+                    .map(|name| quote! { #name })
+                    .unwrap_or_else(|| {
+                        quote! { stringify!(#variant_name) }
+                    });
+                quote! {
+                    #enum_name::#variant_name => #canonical_name,
+                }
+            })
+            .collect()
     }
 
     fn generate_chapters_arms(&self) -> Vec<proc_macro2::TokenStream> {
@@ -103,6 +145,53 @@ impl BookEnumData {
             })
             .collect()
     }
+
+    // books without a series default to the enum name
+    // books with a series default to the series name
+    fn generate_book_series_enum(&self) -> proc_macro2::TokenStream {
+        let series: std::collections::HashSet<String> = self
+            .variants
+            .iter()
+            .map(|v| {
+                let variant_name = v.name.to_string();
+                v.series.as_ref().unwrap_or(&variant_name).to_owned()
+            })
+            .collect();
+        let series_arms: Vec<syn::Ident> = series
+            .iter()
+            .map(|series| syn::Ident::new(series, proc_macro2::Span::call_site()))
+            .collect();
+        quote! {
+            #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+            enum BookSeries {
+                #(#series_arms,)*
+            }
+        }
+    }
+
+    fn generate_book_series_impl(&self) -> proc_macro2::TokenStream {
+        let enum_name = &self.name;
+        let book_series = self.variants.iter().map(|v| {
+            let fallback = v.name.to_string();
+            let variant_name = &v
+                .series
+                .as_ref()
+                .map(|series| quote! { #series })
+                .unwrap_or_else(|| quote! { stringify!(#fallback) });
+            quote! {
+                #enum_name::#variant_name => BookSeries::#variant_name,
+            }
+        });
+        quote! {
+            impl BookSeries {
+                pub fn from_book(book: &Book) -> Self {
+                    match book {
+                        #(#book_series)*
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -118,6 +207,7 @@ mod tests {
                 #[verses = "31, 25, 24"]
                 Alpha = 1,
                 #[chapters = "2"]
+                #[canonical_name = "The Book of Beta"]
                 Beta,
             }
         };
@@ -136,6 +226,7 @@ mod tests {
         assert_eq!(second_variant.name, "Beta");
         assert_eq!(second_variant.num_chapters, Some(2));
         assert!(second_variant.max_verses_per_chapter.is_empty());
+        assert_eq!(second_variant.series, Some("The Book of Beta".to_string()));
     }
 
     #[test]

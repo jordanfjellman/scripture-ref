@@ -1,10 +1,13 @@
 mod bvc;
 mod canon;
+mod lexer;
+mod parser;
 mod scripture_ref_builder;
 mod scripture_span;
 
 use bvc::{Book, Chapter, ChapterNumber, Spanned, Verse, VerseNumber, VersePartLabel};
 use canon::{InCanon, ProtestantCanon};
+use lexer::Lexer;
 use scripture_ref_builder::{
     ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
 };
@@ -141,7 +144,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Verse Span");
     println!("============");
     println!("{:#034b}", verse_span.start_position()?.get());
-    println!("{:#034b}", verse_span.end_position()?.get());
+    println!("{:#034b}\n", verse_span.end_position()?.get());
+
+    // let lexer = Lexer::new("Psalms 1:10");
+    let mut parser = parser::Parser::new("Genesis 1:1");
+    let parsed = parser.parse()?;
+    println!("{parsed}");
 
     Ok(())
 }

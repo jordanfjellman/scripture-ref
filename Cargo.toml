@@ -9,6 +9,7 @@ default = ["lang-en"]
 lang-en = []
 
 [dependencies]
+miette = { version = "7.6.0", features = ["fancy"] }
 scripture-ref-derive = { path = "scripture-ref-derive" }
 thiserror = "2.0.17"
 

@@ -6,6 +6,7 @@ pub struct BookVariantData {
     pub name: Ident,
     pub num_chapters: Option<u8>,
     pub max_verses_per_chapter: Vec<u8>,
+    pub series: Option<String>,
 }
 
 impl BookVariantData {
@@ -13,6 +14,7 @@ impl BookVariantData {
         let name = variant.ident.clone();
         let mut num_chapters = None;
         let mut max_verses_per_chapter = Vec::new();
+        let mut series = None;
 
         for attr in &variant.attrs {
             let Meta::NameValue(meta) = &attr.meta else {
@@ -37,6 +39,8 @@ impl BookVariantData {
                 num_chapters = Some(parse_u8_from_string(&string_value)?);
             } else if ident == "verses" {
                 max_verses_per_chapter = parse_u8_array_from_string(&string_value)?;
+            } else if ident == "series" {
+                series = Some(string_value);
             }
         }
 
@@ -53,6 +57,7 @@ impl BookVariantData {
             name,
             num_chapters,
             max_verses_per_chapter,
+            series,
         })
     }
 }

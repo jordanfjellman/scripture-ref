@@ -60,6 +60,7 @@ pub(crate) enum Book {
 
     #[chapters = "1"]
     #[verses = "15"]
+    #[series = "John"]
     ThirdJohn = 64,
 
     #[chapters = "22"]
@@ -398,6 +399,8 @@ impl std::fmt::Display for Book {
             Book::SongOfSongs => write!(f, "Song of Songs"),
             Book::Obadiah => write!(f, "Obadiah"),
             Book::Matthew => write!(f, "Matthew"),
+            Book::John => write!(f, "John"),
+            Book::ThirdJohn => write!(f, "3 John"),
             Book::Revelation => write!(f, "Revelation"),
         }
     }
@@ -488,17 +491,17 @@ impl TryFrom<&str> for VerseNumber {
     }
 }
 
-impl<'de> TryFrom<(Option<u8>, &'de BookToken)> for Book {
-    type Error = miette::Error;
+impl<'de> TryFrom<(Option<u8>, &'de crate::bvc::BookSeries)> for Book {
+    type Error = String;
 
-    fn try_from((book_num, book_token): (Option<u8>, &'de BookToken)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (book_num, book_token): (Option<u8>, &'de crate::bvc::BookSeries),
+    ) -> Result<Self, Self::Error> {
         let token = match book_num {
             Some(n) => format!("{} {}", n, book_token),
             None => format!("{}", book_token),
         };
-        Book::from_str(token.as_str()).wrap_err(FailedParseFromTokenToBook {
-            src: token.to_string(),
-        })
+        Book::try_from(token.as_str())
     }
 }
 

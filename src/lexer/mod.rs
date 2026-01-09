@@ -1,9 +1,10 @@
-pub mod book_token;
+#![allow(unused)]
+
+use crate::bvc::BookSeries;
+
 pub mod token;
 
 use std::str::FromStr;
-
-// pub use book_token::BookToken;
 pub use token::Token;
 
 #[derive(thiserror::Error, miette::Diagnostic, Debug)]
@@ -104,7 +105,7 @@ impl<'de> Iterator for Lexer<'de> {
                     let token = match literal {
                         "ff" => Ok(Token::FF),
                         // if 'a'..'z' => Ok(TokenKind::Subverse),
-                        l => match BookToken::from_str(l) {
+                        l => match crate::bvc::BookSeries::from_str(l) {
                             Ok(book) => Ok(Token::Book(book)),
                             Err(e) => {
                                 Err(miette::miette! {
@@ -140,7 +141,7 @@ impl<'de> Iterator for Lexer<'de> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::lexer::book_token::BookToken;
+    use crate::bvc::BookSeries;
 
     #[test]
     fn lex_simple_characters() {
@@ -188,7 +189,7 @@ mod test {
     #[test]
     fn lex_books() {
         let mut lexer = Lexer::new("Psalms");
-        let expected_tokens = vec![(Token::Book(BookToken::Psalms), "")];
+        let expected_tokens = vec![(Token::Book(BookSeries::Psalms), "")];
         for expected in expected_tokens {
             let token = lexer.next().unwrap().unwrap();
             let (expected_token, rest) = expected;
@@ -201,7 +202,7 @@ mod test {
     fn lex_simple_reference() {
         let mut lexer = Lexer::new("Psalms 1:10");
         let expected_tokens = vec![
-            (Token::Book(BookToken::Psalms), " 1:10"),
+            (Token::Book(BookSeries::Psalms), " 1:10"),
             (Token::Number(1), ":10"),
             (Token::Colon, "10"),
             (Token::Number(10), ""),
@@ -231,7 +232,7 @@ mod test {
         let mut lexer = Lexer::new("1 Kings");
         let expected_tokens = vec![
             (Token::Number(1), " Kings"),
-            (Token::Book(BookToken::Kings), ""),
+            (Token::Book(BookSeries::Kings), ""),
         ];
         for expected in expected_tokens {
             let token = lexer.next().unwrap().unwrap();

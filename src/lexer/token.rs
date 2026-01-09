@@ -1,10 +1,8 @@
 use std::fmt;
 
-use crate::lexer::book_token::BookToken;
-
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Token {
-    Book(BookToken),
+    Book(crate::bvc::BookSeries),
     Colon,
     Comma,
     Dash,

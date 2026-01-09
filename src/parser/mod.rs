@@ -1,10 +1,12 @@
 use std::iter::Peekable;
 
+use crate::{bvc::Book, lexer::Token};
 use binding_power::{BindingPower, infix_binding_power};
+use miette::miette;
 use operator::Op;
 use token_tree::Node;
 
-use crate::{Lexer, bvc::Book, lexer::Token};
+use crate::Lexer;
 
 pub mod binding_power;
 // pub mod context;
@@ -44,7 +46,7 @@ impl<'de> Parser<'de> {
 
         let mut lhs = match current {
             Token::Book(b) => {
-                let book = Book::try_from((None, &b))?;
+                let book = Book::try_from((None, &b)).map_err(|e| miette!("{e}"))?;
                 self.lexer.next();
                 let right = self.parse_expression(BindingPower::Book as u8)?;
                 Node::InBook(book, Box::new(right))
@@ -56,7 +58,7 @@ impl<'de> Parser<'de> {
             Token::Number(n) => {
                 let peeked = self.lexer.next_if(|v| matches!(v, Ok(Token::Book(_))));
                 if let Some(Ok(Token::Book(b))) = peeked {
-                    let book = Book::try_from((Some(n), &b))?;
+                    let book = Book::try_from((Some(n), &b)).map_err(|e| miette!("{e}"))?;
                     let right = self.parse_expression(BindingPower::Book as u8)?;
                     Node::InBook(book, Box::new(right))
                 } else {

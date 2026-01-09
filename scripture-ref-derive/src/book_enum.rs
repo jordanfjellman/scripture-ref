@@ -1,4 +1,4 @@
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Error, Ident};
 
 use crate::book_variant::BookVariantData;
@@ -163,7 +163,7 @@ impl BookEnumData {
             .collect();
         quote! {
             #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-            enum BookSeries {
+            pub(crate) enum BookSeries {
                 #(#series_arms,)*
             }
         }
@@ -172,16 +172,17 @@ impl BookEnumData {
     fn generate_book_series_impl(&self) -> proc_macro2::TokenStream {
         let enum_name = &self.name;
         let book_series = self.variants.iter().map(|v| {
-            let fallback = v.name.to_string();
-            let variant_name = &v
+            let variant_name = format_ident!("{}", v.name);
+            let series_name = &v
                 .series
                 .as_ref()
-                .map(|series| quote! { #series })
-                .unwrap_or_else(|| quote! { stringify!(#fallback) });
+                .map(|s| format_ident!("{}", s))
+                .unwrap_or(variant_name.clone());
             quote! {
-                #enum_name::#variant_name => BookSeries::#variant_name,
+                #enum_name::#variant_name => BookSeries::#series_name,
             }
         });
+        let book_series_display = "REPLCE_ME_WITH_DISPLAY_IMPL".to_string();
         quote! {
             impl BookSeries {
                 pub fn from_book(book: &Book) -> Self {
@@ -190,6 +191,24 @@ impl BookEnumData {
                     }
                 }
             }
+
+            impl std::fmt::Display for BookSeries {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "{}", #book_series_display)
+                }
+            }
+
+            impl std::str::FromStr for BookSeries {
+                type Err = String;
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    match s {
+                        // TODO: add cases for all books (how to handle multi-word books?)
+                        _ => Err(format!("not a valid book series: {}", s)),
+                    }
+                }
+            }
+
         }
     }
 }

@@ -13,8 +13,8 @@ use scripture_span::ScriptureSpan;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let verse_ref = ScriptureVerseRef::builder()
         .try_book("Genesis")?
-        .try_chapter(1)?
-        .try_verse(1)?
+        .try_chapter("1")?
+        .try_verse("1")?
         .build()?;
 
     let other_verse_ref = ScriptureVerseRef::builder()

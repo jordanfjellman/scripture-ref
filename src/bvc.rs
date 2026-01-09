@@ -436,11 +436,41 @@ impl TryFrom<u8> for ChapterNumber {
     }
 }
 
+impl TryFrom<&str> for ChapterNumber {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let num = value.parse::<u8>().map_err(|e| {
+            format!(
+                "not a valid chapter number: {}; error: {:?}",
+                value,
+                e.kind()
+            )
+        })?;
+        ChapterNumber::try_from(num)
+    }
+}
+
 impl TryFrom<u8> for VerseNumber {
     type Error = String;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         VerseNumber::new(value)
+    }
+}
+
+impl TryFrom<&str> for VerseNumber {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let num = value.parse::<u8>().map_err(|e| {
+            format!(
+                "not a valid chapter number: {}; error: {:?}",
+                value,
+                e.kind()
+            )
+        })?;
+        VerseNumber::try_from(num)
     }
 }
 

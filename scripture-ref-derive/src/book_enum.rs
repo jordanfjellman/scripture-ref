@@ -1,7 +1,8 @@
+use proc_macro2::Literal;
 use quote::{format_ident, quote};
 use syn::{Data, DeriveInput, Error, Ident};
 
-use crate::book_variant::BookVariantData;
+use crate::book_variant::{BookVariantData, build_book_variant_lookup_table};
 
 pub struct BookEnumData {
     pub name: Ident,
@@ -35,11 +36,15 @@ impl BookEnumData {
         let book_impl = self.generate_book_impl();
         let book_series_enum = self.generate_book_series_enum();
         let book_series_impl = self.generate_book_series_impl();
+        let book_parse_impl = self.generate_parse_for_book_impl();
+        let match_normalized = self.generate_match_normalized();
 
         quote! {
+            #match_normalized
             #book_impl
             #book_series_enum
             #book_series_impl
+            #book_parse_impl
         }
     }
 
@@ -48,6 +53,7 @@ impl BookEnumData {
         let chapters_arms = self.generate_chapters_arms();
         let verses_arms = self.generate_verses_arms();
         let canonical_name_arms = self.generate_canonical_name_arms();
+        let series_arms = self.generate_series_arms();
 
         quote! {
             impl #enum_name {
@@ -59,13 +65,20 @@ impl BookEnumData {
                 }
 
                 /// Returns the canonical name of the book.
+                pub fn canonical_name(&self) -> &'static str {
+                    match self {
+                        #(#canonical_name_arms)*
+                    }
+                }
+
+                /// Returns the series name of the book.
                 ///
                 /// For example, the canonical name of Genesis is "Genesis".
                 /// The canonical name of 1 Kings is "Kings".
                 /// The canonical name of 2 Timothy is "Timothy".
-                pub fn canonical_name(&self) -> &'static str {
+                pub fn series(&self) -> &'static str {
                     match self {
-                        #(#canonical_name_arms)*
+                        #(#series_arms)*
                     }
                 }
 
@@ -96,7 +109,84 @@ impl BookEnumData {
         }
     }
 
+    fn generate_parse_for_book_impl(&self) -> proc_macro2::TokenStream {
+        let enum_name = &self.name;
+        let parsed_book_arms = self.generate_parse_book_arms();
+        quote! {
+            impl #enum_name {
+                pub(crate) fn parse(s: &str) -> Result<(Self, usize), String> {
+                    // get first character and length (1 space per whitespace run)
+                    match dispatch_key(s) {
+                        #(#parsed_book_arms)*
+                        _ => Err(format!("not a valid book: {}", s)),
+                    }
+                }
+            }
+
+            /// Returns the first character and the normalized length of the input
+            fn dispatch_key(s: &str) -> (Option<u8>, usize) {
+                // TODO: maybe handle consecutive whitespace better?
+                let mut first = None;
+                let mut len = 0;
+                for (i, c) in s.chars().enumerate() {
+                    if c.is_whitespace() {
+                        len += 1;
+                    } else {
+                        if first.is_none() {
+                            first = Some(c as u8);
+                        }
+                        len += 1;
+                    }
+                }
+                (first, len)
+            }
+        }
+    }
+
+    fn generate_parse_book_arms(&self) -> Vec<proc_macro2::TokenStream> {
+        let enum_name = &self.name;
+        // names used must be normalized, or else they will not ever match (where to assert?)
+        let lookup_table = build_book_variant_lookup_table(&self.variants);
+        lookup_table
+            .iter()
+            .map(|((first_char, len), mappings)| {
+                let first_byte = Literal::byte_character(*first_char as u8);
+                let by_len_arms: Vec<proc_macro2::TokenStream> = mappings
+                    .iter()
+                    .map(|m| {
+                        let variant_name = &m.variant_name;
+                        let variant_name = format_ident!("{}", variant_name);
+                        let name_bytes = Literal::byte_string(&m.name.as_bytes());
+                        quote! {
+                            if let Some(len) = match_normalized(s, #name_bytes) { return Ok((#enum_name::#variant_name, len)); }
+                            return Err(format!("not a valid book: {}", s));
+                        }
+                    })
+                    .collect();
+                quote! {
+                    (Some(#first_byte), #len) => {
+                        #(#by_len_arms)*
+                    },
+                }
+            })
+            .collect()
+    }
+
     fn generate_canonical_name_arms(&self) -> Vec<proc_macro2::TokenStream> {
+        let enum_name = &self.name;
+        self.variants
+            .iter()
+            .map(|v| {
+                let variant_name = &v.name;
+                let canonical_name = &v.canonical_name();
+                quote! {
+                    #enum_name::#variant_name => #canonical_name,
+                }
+            })
+            .collect()
+    }
+
+    fn generate_series_arms(&self) -> Vec<proc_macro2::TokenStream> {
         let enum_name = &self.name;
         self.variants
             .iter()
@@ -209,6 +299,67 @@ impl BookEnumData {
                 }
             }
 
+        }
+    }
+
+    fn generate_match_normalized(&self) -> proc_macro2::TokenStream {
+        quote! {
+            /// Compares input against a byte pattern. Returns length of consumed bytes if input matches
+            /// pattern.
+            #[inline]
+            fn match_normalized(input: &str, pattern: &[u8]) -> Option<usize> {
+                let mut input_bytes = input.as_bytes().iter().copied().peekable();
+                let mut pattern_iter = pattern.iter().peekable();
+                let mut bytes_consumed = 0;
+
+                while let Some(&p) = pattern_iter.next() {
+                    // skip whitespace (should never happen because parser should have skipped leading
+                    // whitespace)
+                    if p == b' ' {
+                        while input
+                            .bytes()
+                            .next()
+                            .map_or(false, |b| b.is_ascii_whitespace())
+                        {
+                            input_bytes.next();
+                            bytes_consumed += 1;
+                        }
+                        continue;
+                    }
+
+                    // get next non-whitespace byte
+                    let Some(mut i) = input_bytes.next() else {
+                        return None;
+                    };
+                    bytes_consumed += 1;
+
+                    // skip whitespace between bytes
+                    while i.is_ascii_whitespace() {
+                        let Some(next) = input_bytes.next() else {
+                            return None;
+                        };
+                        bytes_consumed += 1;
+                        i = next;
+                    }
+
+                    // stop if input doesn't match pattern
+                    if i.to_ascii_lowercase() != p {
+                        return None;
+                    }
+                }
+
+                // ignore trailing whitespace
+                while let Some(&i) = input_bytes.peek() {
+                    if !i.is_ascii_whitespace() {
+                        return None;
+                    }
+                    input_bytes.next();
+                    bytes_consumed += 1;
+                }
+
+                // matches pattern ignoring whitespace
+                Some(bytes_consumed)
+            }
         }
     }
 }

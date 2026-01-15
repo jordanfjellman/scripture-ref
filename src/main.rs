@@ -147,9 +147,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:#034b}\n", verse_span.end_position()?.get());
 
     // let lexer = Lexer::new("Psalms 1:10");
-    let mut parser = parser::Parser::new("Genesis 1:1");
-    let parsed = parser.parse()?;
-    println!("{parsed}");
+    // let mut parser = parser::Parser::new("Genesis 1:1");
+    // let parsed = parser.parse()?;
+    // println!("{parsed}");
+
+    let (book, bytes) = Book::parse("1 kings")?;
+    println!("{book}, {bytes}");
 
     Ok(())
 }

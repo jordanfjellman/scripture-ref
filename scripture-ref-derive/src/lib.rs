@@ -2,7 +2,10 @@ mod book_enum;
 mod book_variant;
 mod parse;
 
-#[proc_macro_derive(Book, attributes(chapters, verses, series))]
+#[proc_macro_derive(
+    Book,
+    attributes(chapters, verses, canonical_name, series, abbreviations)
+)]
 pub fn derive_book(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
     book_enum::BookEnumData::from_derive_input(&input)

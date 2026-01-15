@@ -1,13 +1,18 @@
-pub fn parse_u8_from_string(s: &str) -> syn::Result<u8> {
+pub(crate) fn parse_u8_from_string(s: &str) -> syn::Result<u8> {
     s.trim()
         .parse::<u8>()
         .map_err(|_| syn::Error::new_spanned(&format!("\"{}\"", s), "expected a valid u8 value"))
 }
 
-pub fn parse_u8_array_from_string(s: &str) -> syn::Result<Vec<u8>> {
+pub(crate) fn parse_u8_array_from_string(s: &str) -> syn::Result<Vec<u8>> {
     s.split(',')
-        .map(|part| parse_u8_from_string(part.trim()))
+        .map(|part| parse_u8_from_string(part))
         .collect()
+}
+
+pub(crate) fn parse_array_from_string(s: &str) -> syn::Result<Vec<String>> {
+    let r = s.split(',').map(|part| part.trim().to_string()).collect();
+    syn::Result::Ok(r)
 }
 
 #[cfg(test)]

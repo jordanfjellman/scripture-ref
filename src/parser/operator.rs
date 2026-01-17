@@ -9,6 +9,7 @@ pub enum Op {
     Following,
     Select,
     Through,
+    PartOf,
 }
 
 impl fmt::Display for Op {
@@ -20,6 +21,7 @@ impl fmt::Display for Op {
             Op::Following => "following",
             Op::Select => "select",
             Op::Through => "through",
+            Op::PartOf => "part of",
         };
         write!(f, "{}", text)
     }

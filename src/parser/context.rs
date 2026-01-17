@@ -206,12 +206,19 @@ fn interpret_through(
     right: Node,
     ctx: &InterpreterContext,
 ) -> Result<ScriptureRef, String> {
-    let left = interpret_with_context(left, &ctx)?;
-    let right = interpret_with_context(right, &ctx)?;
-    println!("{left:?} {right:?}");
+    let left_ref = interpret_with_context(left.clone(), &ctx)?;
+
+    let right_ref = match (&left, &right) {
+        (Node::InChapter(chapter, _), Node::Number(_)) => {
+            let chapter_ctx = ctx.with_chapter(ChapterNumber::try_from(*chapter)?);
+            interpret_with_context(right, &chapter_ctx)?
+        }
+        _ => interpret_with_context(right, &ctx)?,
+    };
+
     ScripturePassageRef::builder()
-        .start_at(left.try_into()?)
-        .end_at(right.try_into()?)
+        .start_at(left_ref.try_into()?)
+        .end_at(right_ref.try_into()?)
         .build()
         .map(|p| p.into())
 }

@@ -9,7 +9,6 @@ use crate::Lexer;
 
 pub mod binding_power;
 pub mod context;
-// pub mod operand;
 pub mod operator;
 pub mod token_tree;
 
@@ -98,6 +97,7 @@ impl<'de> Parser<'de> {
                 Op::Following => todo!(),
                 Op::Select => Node::Select(Box::new(lhs), Box::new(rhs)),
                 Op::Through => Node::Through(Box::new(lhs), Box::new(rhs)),
+                Op::PartOf => todo!(),
             };
             continue;
         }

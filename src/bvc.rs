@@ -433,7 +433,7 @@ impl std::fmt::Display for Verse {
 
 impl std::fmt::Display for VersePartLabel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0.to_ascii_uppercase()) // TODO: is this right?
+        write!(f, "{}", self.0.to_ascii_lowercase() as char)
     }
 }
 
@@ -501,6 +501,14 @@ impl TryFrom<&str> for VerseNumber {
             )
         })?;
         VerseNumber::try_from(num)
+    }
+}
+
+impl TryFrom<u8> for VersePartLabel {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        VersePartLabel::new(value)
     }
 }
 

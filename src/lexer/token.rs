@@ -12,7 +12,7 @@ pub enum Token {
     Number(u8),
     Period,
     SemiColon,
-    Subverse,
+    VersePart(u8),
 }
 
 impl fmt::Display for Token {
@@ -26,7 +26,7 @@ impl fmt::Display for Token {
             Token::Number(n) => write!(f, "NUMBER {n}"),
             Token::Period => write!(f, "PERIOD null"),
             Token::SemiColon => write!(f, "SEMICOLON null"),
-            Token::Subverse => write!(f, "SUBVERSE null"),
+            Token::VersePart(p) => write!(f, "VERSE_PART {p}"),
         }
     }
 }

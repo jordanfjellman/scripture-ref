@@ -1,4 +1,4 @@
-use crate::bvc::{Book, ChapterNumber, VerseNumber};
+use crate::bvc::{Book, Chapter, ChapterNumber, VerseNumber};
 use crate::parser::token_tree::Node;
 use crate::scripture_ref_builder::{
     ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
@@ -28,6 +28,7 @@ use crate::scripture_ref_builder::{
 struct InterpreterContext {
     book: Option<Book>,
     chapter: Option<ChapterNumber>,
+    verse: Option<VerseNumber>,
 }
 
 impl InterpreterContext {
@@ -35,6 +36,7 @@ impl InterpreterContext {
         Self {
             book: None,
             chapter: None,
+            verse: None,
         }
     }
 
@@ -42,6 +44,7 @@ impl InterpreterContext {
         Self {
             book: Some(book),
             chapter: None,
+            verse: None,
         }
     }
 
@@ -50,8 +53,18 @@ impl InterpreterContext {
         self
     }
 
+    fn with_verse(mut self, verse: VerseNumber) -> Self {
+        self.verse = Some(verse);
+        self
+    }
+
     fn reset_chapter(mut self) -> Self {
         self.chapter = None;
+        self.reset_verse()
+    }
+
+    fn reset_verse(mut self) -> Self {
+        self.verse = None;
         self
     }
 }
@@ -70,13 +83,15 @@ fn interpret_with_context(node: Node, ctx: &InterpreterContext) -> Result<Script
     match node {
         Node::InBook(book, inner) => interpret_in_book(book, *inner),
         Node::InChapter(chapter, inner) => interpret_in_chapter(chapter, *inner, ctx),
+        Node::InVerse(verse, inner) => interpret_in_verse(verse, *inner, ctx),
         Node::Number(verse_number) => interpret_number(verse_number, ctx),
         Node::And(left, right) => interpret_and(*left, *right, ctx),
         Node::Select(left, right) => interpret_select(*left, *right, ctx),
         Node::Through(left, right) => interpret_through(*left, *right, ctx),
-        Node::Following(following) => interpret_following(*following),
+        Node::Following(verse) => interpret_following(*verse, ctx),
         Node::Nil => interpret_nil(ctx),
         Node::Book(book) => interpret_book(book),
+        Node::VersePart(part) => interpret_verse_part(part, ctx),
     }
 }
 
@@ -128,13 +143,20 @@ fn interpret_in_book(book: Book, inner: Node) -> Result<ScriptureRef, String> {
 }
 
 fn interpret_in_chapter(
-    chapter: u8,
+    chapter: ChapterNumber,
     inner: Node,
     ctx: &InterpreterContext,
 ) -> Result<ScriptureRef, String> {
-    println!("interpret_in_chapter {chapter} {inner:?}");
-    let chapter_num = ChapterNumber::try_from(chapter)?;
-    let new_ctx = ctx.with_chapter(chapter_num);
+    let new_ctx = ctx.with_chapter(chapter);
+    interpret_with_context(inner, &new_ctx)
+}
+
+fn interpret_in_verse(
+    verse: VerseNumber,
+    inner: Node,
+    ctx: &InterpreterContext,
+) -> Result<ScriptureRef, String> {
+    let new_ctx = ctx.with_verse(verse);
     interpret_with_context(inner, &new_ctx)
 }
 
@@ -169,6 +191,19 @@ fn interpret_number(number: u8, ctx: &InterpreterContext) -> Result<ScriptureRef
     }
 }
 
+fn interpret_verse_part(part: u8, ctx: &InterpreterContext) -> Result<ScriptureRef, String> {
+    let book = ctx.book.ok_or("no book in context")?;
+    let chapter = ctx.chapter.ok_or("no chapter in context")?;
+    let verse = ctx.verse.ok_or("no verse in context")?;
+    ScriptureVerseRef::builder()
+        .book(book)
+        .chapter(chapter)
+        .verse(verse)
+        .try_verse_part(part)?
+        .build()
+        .map(|v| v.into())
+}
+
 // semicolon
 fn interpret_and(
     left: Node,
@@ -191,8 +226,19 @@ fn interpret_select(
     right: Node,
     ctx: &InterpreterContext,
 ) -> Result<ScriptureRef, String> {
+    let right_ctx = match (&left, &right) {
+        (Node::InVerse(verse, _), Node::VersePart(_)) => ctx.with_verse(*verse),
+        (Node::InChapter(chapter, inner), Node::VersePart(_)) => {
+            if let Node::InVerse(verse, _) = inner.as_ref() {
+                ctx.with_chapter(*chapter).with_verse(*verse)
+            } else {
+                *ctx
+            }
+        }
+        _ => *ctx,
+    };
     let left = interpret_with_context(left, &ctx)?;
-    let right = interpret_with_context(right, &ctx)?;
+    let right = interpret_with_context(right, &right_ctx)?;
     ScriptureSelectionRef::builder()
         .add_scripture_ref(left)
         .add_scripture_ref(right)
@@ -206,14 +252,34 @@ fn interpret_through(
     right: Node,
     ctx: &InterpreterContext,
 ) -> Result<ScriptureRef, String> {
+    let inherited_chapter_ctx = match (&left, &right) {
+        (Node::InChapter(chapter, _), Node::Number(_))
+        | (Node::InChapter(chapter, _), Node::InVerse(_, _)) => Some(ctx.with_chapter(*chapter)),
+        _ => None,
+    };
+    let inherited_verse_ctx = match (&left, &right) {
+        (Node::InVerse(verse, _), Node::VersePart(_)) => {
+            let base_ctx = inherited_chapter_ctx.as_ref().unwrap_or(ctx);
+            Some(base_ctx.with_verse(*verse))
+        }
+        (Node::InChapter(chapter, inner), Node::VersePart(_)) => {
+            if let Node::InVerse(verse, _) = inner.as_ref() {
+                Some(ctx.with_chapter(*chapter).with_verse(*verse))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+
     let left_ref = interpret_with_context(left.clone(), &ctx)?;
 
-    let right_ref = match (&left, &right) {
-        (Node::InChapter(chapter, _), Node::Number(_)) => {
-            let chapter_ctx = ctx.with_chapter(ChapterNumber::try_from(*chapter)?);
-            interpret_with_context(right, &chapter_ctx)?
-        }
-        _ => interpret_with_context(right, &ctx)?,
+    let right_ref = if let Some(ref v_ctx) = inherited_verse_ctx {
+        interpret_with_context(right, v_ctx)?
+    } else if let Some(ref c_ctx) = inherited_chapter_ctx {
+        interpret_with_context(right, c_ctx)?
+    } else {
+        interpret_with_context(right, &ctx)?
     };
 
     ScripturePassageRef::builder()
@@ -224,8 +290,29 @@ fn interpret_through(
 }
 
 // ff
-fn interpret_following(_node: Node) -> Result<ScriptureRef, String> {
-    todo!()
+fn interpret_following(verse: Node, ctx: &InterpreterContext) -> Result<ScriptureRef, String> {
+    println!("following: {verse:?}");
+    let book = ctx.book.ok_or("no book in context")?;
+    let chapter = ctx.chapter.ok_or("no chapter in context")?;
+    let chapter = Chapter::new(book, chapter)?;
+
+    ScripturePassageRef::builder()
+        .start_at(
+            ScriptureVerseRef::builder()
+                .book(book)
+                .chapter(chapter.number)
+                .verse(verse.try_into()?)
+                .build()?,
+        )
+        .end_at(
+            ScriptureVerseRef::builder()
+                .book(book)
+                .chapter(chapter.number)
+                .verse(chapter.max_verse_count()?.try_into()?)
+                .build()?,
+        )
+        .build()
+        .map(|p| p.into())
 }
 
 fn interpret_nil(_ctx: &InterpreterContext) -> Result<ScriptureRef, String> {
@@ -257,14 +344,12 @@ mod tests {
     #[test]
     fn passage() {
         let result = parse_and_interpret("Genesis 1:1-2").unwrap();
-        println!("{result:?}");
         assert_eq!(result.to_string(), "Genesis 1:1-2");
     }
 
     #[test]
     fn selection_comma() {
         let result = parse_and_interpret("Genesis 1:1,3").unwrap();
-        // Selection of two verses in same chapter
         assert!(matches!(result, ScriptureRef::Selection(_)));
     }
 
@@ -289,14 +374,12 @@ mod tests {
     #[test]
     fn chapter_only() {
         let result = parse_and_interpret("Genesis 1").unwrap();
-        // Should be passage from 1:1 to 1:31
         assert!(matches!(result, ScriptureRef::Passage(_)));
     }
 
     #[test]
     fn following_verses() {
         let result = parse_and_interpret("Genesis 1:5ff").unwrap();
-        // Should be passage from 1:5 to 1:31
         assert!(matches!(result, ScriptureRef::Passage(_)));
     }
 
@@ -316,5 +399,48 @@ mod tests {
     fn single_chapter_book_3john() {
         let result = parse_and_interpret("3 John 5").unwrap();
         assert_eq!(result.to_string(), "3 John 1:5");
+    }
+
+    #[test]
+    fn verse_with_part() {
+        let result = parse_and_interpret("Genesis 1:5a").unwrap();
+        assert!(matches!(result, ScriptureRef::Verse(_)));
+        assert_eq!(result.to_string(), "Genesis 1:5a");
+    }
+
+    #[test]
+    fn verse_part_range_same_verse() {
+        let result = parse_and_interpret("Genesis 1:5a-b").unwrap();
+        assert!(matches!(result, ScriptureRef::Passage(_)));
+    }
+
+    #[test]
+    fn verse_part_range_cross_verse() {
+        let result = parse_and_interpret("Genesis 1:5a-6b").unwrap();
+        assert!(matches!(result, ScriptureRef::Passage(_)));
+    }
+
+    #[test]
+    fn verse_part_to_whole_verse() {
+        let result = parse_and_interpret("Genesis 1:5a-6").unwrap();
+        assert!(matches!(result, ScriptureRef::Passage(_)));
+    }
+
+    #[test]
+    fn whole_verse_to_verse_part() {
+        let result = parse_and_interpret("Genesis 1:5-6b").unwrap();
+        assert!(matches!(result, ScriptureRef::Passage(_)));
+    }
+
+    #[test]
+    fn verse_part_selection() {
+        let result = parse_and_interpret("Genesis 1:5a,c").unwrap();
+        assert!(matches!(result, ScriptureRef::Selection(_)));
+    }
+
+    #[test]
+    fn complex_verse_selection() {
+        let result = parse_and_interpret("1 Kings 1:1-2a, 3:4b-5").unwrap();
+        assert!(matches!(result, ScriptureRef::Selection(_)));
     }
 }

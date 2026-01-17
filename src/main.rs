@@ -151,18 +151,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut lexer = Lexer::new("1 Kings 1:10");
     println!("lexer: {:?}", lexer.next());
 
-    let mut parser = parser::Parser::new("1 kings 1:1");
+    let mut parser = parser::Parser::new("1 kings 1:10");
     let parsed = parser.parse()?;
     println!("parser: {parsed}");
 
     let (book, bytes) = Book::parse("1 kings")?;
     println!("{book}, {bytes}");
 
-    let ref_str = ScriptureRef::from_str("1 Kings 1:1-2; 3:4-5; Genesis 1:2,5a")?;
-    println!("{ref_str}");
+    let ref_str = ScriptureRef::from_str("1 Kings 1:1-2a, 3:4b-5")?;
+    println!("many verses...{ref_str}");
 
-    let bad_ref_str = ScriptureRef::from_str("bad ref")?;
-    println!("{bad_ref_str:?}");
+    // let bad_ref_str = ScriptureRef::from_str("bad ref")?;
+    // println!("{bad_ref_str:?}");
 
     Ok(())
 }

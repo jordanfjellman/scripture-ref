@@ -1,6 +1,9 @@
 use std::iter::Peekable;
 
-use crate::lexer::Token;
+use crate::{
+    bvc::{ChapterNumber, VerseNumber},
+    lexer::Token,
+};
 use binding_power::{BindingPower, infix_binding_power};
 use operator::Op;
 use token_tree::Node;
@@ -47,14 +50,14 @@ impl<'de> Parser<'de> {
                 let right = self.parse_expression(BindingPower::Book as u8)?;
                 Node::InBook(book, Box::new(right))
             }
-            Token::Colon => todo!(),
-            Token::Comma => todo!(),
-            Token::Dash => todo!(),
-            Token::FF => todo!(),
             Token::Number(n) => Node::Number(n),
-            Token::Period => todo!(),
-            Token::SemiColon => todo!(),
-            Token::Subverse => todo!(),
+            Token::VersePart(p) => Node::VersePart(p),
+            Token::Colon => unimplemented!(),
+            Token::Comma => unimplemented!(),
+            Token::Dash => unimplemented!(),
+            Token::FF => unimplemented!(),
+            Token::Period => unimplemented!(),
+            Token::SemiColon => unimplemented!(),
         };
 
         loop {
@@ -62,18 +65,29 @@ impl<'de> Parser<'de> {
             let operator = match token {
                 None => break,
                 Some(Ok(Token::Number(_))) => {
-                    // let chapter = *n;
-                    // let rhs = self.parse_expression(min_bp)?;
-                    // return Ok(Node::InChapter(chapter, Box::new(rhs)));
                     let rhs = self.parse_expression(min_bp);
                     return rhs;
+                }
+                Some(Ok(Token::VersePart(p))) => {
+                    let part = *p;
+                    if let Node::Number(verse_num) = lhs {
+                        self.lexer.next();
+                        lhs = Node::InVerse(
+                            VerseNumber::try_from(verse_num).map_err(|e| miette::miette!("{e}"))?,
+                            Box::new(Node::VersePart(part)),
+                        );
+                        continue;
+                    } else {
+                        break;
+                    }
                 }
                 Some(Ok(Token::Comma)) => Op::Select,
                 Some(Ok(Token::Colon)) => Op::ChapterOf,
                 Some(Ok(Token::Dash)) => Op::Through,
                 Some(Ok(Token::SemiColon)) => Op::And,
-                Some(_) => {
-                    todo!("handle other tokens")
+                Some(Ok(Token::FF)) => Op::Following,
+                Some(token) => {
+                    todo!("handle other tokens {token:?}");
                 }
             };
 
@@ -93,16 +107,40 @@ impl<'de> Parser<'de> {
                     })?;
                     Node::InChapter(chapter, Box::new(rhs))
                 }
-                Op::BookOf => todo!(),
-                Op::Following => todo!(),
+                Op::BookOf => unimplemented!(),
+                Op::Following => Node::Following(Box::new(lhs)),
                 Op::Select => Node::Select(Box::new(lhs), Box::new(rhs)),
                 Op::Through => Node::Through(Box::new(lhs), Box::new(rhs)),
-                Op::PartOf => todo!(),
+                Op::PartOf => unimplemented!(),
             };
             continue;
         }
 
         Ok(lhs)
+    }
+}
+
+impl TryFrom<Node> for ChapterNumber {
+    type Error = String;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::InChapter(chapter, _) => Ok(chapter),
+            Node::Number(n) => Ok(ChapterNumber::try_from(n)?),
+            _ => Err("not a chapter number".to_string()),
+        }
+    }
+}
+
+impl TryFrom<Node> for VerseNumber {
+    type Error = String;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::InVerse(verse, _) => Ok(verse),
+            Node::Number(n) => Ok(VerseNumber::try_from(n)?),
+            _ => Err("not a verse number".to_string()),
+        }
     }
 }
 

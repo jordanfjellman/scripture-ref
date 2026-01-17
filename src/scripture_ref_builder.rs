@@ -114,6 +114,18 @@ impl ScriptureVerseRefBuilder {
         Ok(self.verse(verse.try_into()?))
     }
 
+    pub fn verse_part(mut self, part: VersePartLabel) -> Self {
+        self.verse_part = Some(part);
+        self
+    }
+
+    pub fn try_verse_part<T>(self, part: T) -> Result<Self, T::Error>
+    where
+        T: TryInto<VersePartLabel>,
+    {
+        Ok(self.verse_part(part.try_into()?))
+    }
+
     pub fn build(&self) -> Result<ScriptureVerseRef, String> {
         let book = self.book.ok_or_else(|| "book is required".to_string())?;
         let chapter = self
@@ -250,8 +262,16 @@ impl std::fmt::Display for ScripturePassageRef {
         } else if self.start.verse.book == self.end.verse.book {
             write!(
                 f,
-                "{}:{}-{}",
-                self.start.verse.chapter, self.start.verse.number, self.end.verse.number
+                "{}:{}{}-{}{}",
+                self.start.verse.chapter,
+                self.start.verse.number,
+                self.start
+                    .verse_part
+                    .map_or("".to_string(), |p| format!("{p}")),
+                self.end.verse.number,
+                self.end
+                    .verse_part
+                    .map_or("".to_string(), |p| format!("{p}")),
             )
         } else {
             write!(f, "{}-{}", self.start, self.end)

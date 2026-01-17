@@ -32,6 +32,7 @@ pub fn infix_binding_power(op: Op) -> (u8, u8) {
         Op::Select => (13, 14),
         Op::Through => (15, 16),
         Op::ChapterOf => (17, 18),
+        Op::Following => (19, 0),
         _ => (0, 0),
     }
 }

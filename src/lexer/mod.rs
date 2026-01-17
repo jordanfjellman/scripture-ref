@@ -116,7 +116,7 @@ impl<'de> Iterator for Lexer<'de> {
 
                     let token = match literal {
                         "ff" => Ok(Token::FF),
-                        // if 'a'..'z' => Ok(TokenKind::Subverse),
+                        t if t.len() == 1 && matches!(t.as_bytes()[0], b'a'..=b'd') => Ok(Token::VersePart(t.as_bytes()[0])),
                         l => {
                             Err(miette::miette! {
                                 labels = vec![miette::LabeledSpan::at(self.current_byte-1..self.current_byte + bytes_from_chars-1, "these literal characters")],

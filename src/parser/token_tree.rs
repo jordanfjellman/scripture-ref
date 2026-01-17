@@ -5,7 +5,10 @@ use crate::bvc::Book;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     And(Box<Node>, Box<Node>),
+    #[allow(unused)]
     Book(Book),
+    #[allow(unused)]
+    Following(Box<Node>),
     InBook(Book, Box<Node>),
     InChapter(u8, Box<Node>),
     Through(Box<Node>, Box<Node>),
@@ -19,6 +22,7 @@ impl fmt::Display for Node {
         match self {
             Node::And(left, right) => write!(f, "{} and(;) {}", left, right),
             Node::Book(book) => write!(f, "{}", book),
+            Node::Following(node) => write!(f, "following {}", node),
             Node::InBook(book, node) => write!(f, "{} in the book of {}", node, book),
             Node::InChapter(chapter, node) => write!(f, "verse {} in chapter {}", node, chapter),
             Node::Through(initial, end) => write!(f, "{} through {}", initial, end),

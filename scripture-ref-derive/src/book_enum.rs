@@ -123,7 +123,7 @@ impl BookEnumData {
                 }
             }
 
-            /// Returns the first character and the normalized length of the input
+            /// Returns the first character (lowercased) and the normalized length of the input
             fn dispatch_key(s: &str) -> (Option<u8>, usize) {
                 // TODO: maybe handle consecutive whitespace better?
                 let mut first = None;
@@ -133,7 +133,7 @@ impl BookEnumData {
                         len += 1;
                     } else {
                         if first.is_none() {
-                            first = Some(c as u8);
+                            first = Some(c.to_ascii_lowercase() as u8);
                         }
                         len += 1;
                     }

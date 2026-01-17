@@ -35,6 +35,7 @@ impl ScriptureEnd {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn into_real_position(self) -> Option<ScripturePosition> {
         match self {
             ScriptureEnd::NextPosition(pos) => Some(pos),

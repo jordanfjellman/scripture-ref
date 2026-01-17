@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use super::operator::Op;
 
 #[repr(u8)]

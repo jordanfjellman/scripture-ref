@@ -31,7 +31,7 @@ pub(crate) struct ScripturePassageRef {
 #[derive(Debug, Clone)]
 pub(crate) struct ScriptureSelectionRef(Vec<SelectionPart>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct ScriptureVerseRefBuilder {
     book: Option<Book>,
     chapter: Option<ChapterNumber>,
@@ -64,7 +64,7 @@ impl ScriptureVerseRef {
     }
 
     pub fn builder() -> ScriptureVerseRefBuilder {
-        ScriptureVerseRefBuilder::new()
+        ScriptureVerseRefBuilder::default()
     }
 }
 
@@ -125,13 +125,25 @@ impl ScriptureVerseRefBuilder {
     }
 }
 
+impl std::default::Default for ScriptureVerseRefBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::default::Default for ScripturePassageRefBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ScripturePassageRef {
     pub fn new(start: ScriptureVerseRef, end: ScriptureVerseRef) -> Result<Self, String> {
         Ok(Self { start, end })
     }
 
     pub fn builder() -> ScripturePassageRefBuilder {
-        ScripturePassageRefBuilder::new()
+        ScripturePassageRefBuilder::default()
     }
 }
 
@@ -186,6 +198,14 @@ impl ScriptureSelectionRefBuilder {
         }
     }
 
+    pub fn add_scripture_ref(self, scripture_ref: ScriptureRef) -> Self {
+        match scripture_ref {
+            ScriptureRef::Verse(v) => self.add_verse(v),
+            ScriptureRef::Passage(p) => self.add_passage(p),
+            ScriptureRef::Selection(s) => self.add_selection(s),
+        }
+    }
+
     pub fn add_verse(mut self, verse: ScriptureVerseRef) -> Self {
         self.selection.push(SelectionPart::Verse(verse));
         self
@@ -193,6 +213,16 @@ impl ScriptureSelectionRefBuilder {
 
     pub fn add_passage(mut self, passage: ScripturePassageRef) -> Self {
         self.selection.push(SelectionPart::Passage(passage));
+        self
+    }
+
+    pub fn add_selection(mut self, selection: ScriptureSelectionRef) -> Self {
+        for part in selection.parts() {
+            self = match part {
+                SelectionPart::Verse(v) => self.add_verse(v),
+                SelectionPart::Passage(p) => self.add_passage(p),
+            };
+        }
         self
     }
 
@@ -217,20 +247,11 @@ impl std::fmt::Display for ScripturePassageRef {
         // TODO: optimize, probably done using ref ids
         if self.start.verse == self.end.verse {
             write!(f, "{}", self.start)
-        } else if self.start.verse.chapter == self.end.verse.chapter {
-            write!(
-                f,
-                "{} {}",
-                self.start.verse.book, self.start.verse.chapter.number
-            )
         } else if self.start.verse.book == self.end.verse.book {
             write!(
                 f,
-                "{} {}:{}-{}",
-                self.start.verse.book,
-                self.start.verse.chapter,
-                self.start.verse.number,
-                self.end.verse.number
+                "{}:{}-{}",
+                self.start.verse.chapter, self.start.verse.number, self.end.verse.number
             )
         } else {
             write!(f, "{}-{}", self.start, self.end)
@@ -322,5 +343,28 @@ impl From<Chapter> for ScripturePassageRef {
 impl From<ScriptureSelectionRef> for ScriptureRef {
     fn from(value: ScriptureSelectionRef) -> Self {
         Self::Selection(value)
+    }
+}
+
+impl TryFrom<ScriptureRef> for ScriptureVerseRef {
+    type Error = String;
+
+    fn try_from(value: ScriptureRef) -> Result<Self, Self::Error> {
+        match value {
+            ScriptureRef::Verse(v) => Ok(v),
+            _ => Err("not a verse ref".to_string()),
+        }
+    }
+}
+
+impl std::str::FromStr for ScriptureRef {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use crate::parser::{Parser, context::interpret};
+
+        let mut parser = Parser::new(s);
+        let ast = parser.parse().map_err(|e| e.to_string())?;
+        interpret(ast)
     }
 }

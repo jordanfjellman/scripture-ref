@@ -2,7 +2,7 @@ use std::fmt;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Token {
-    Book(crate::bvc::BookSeries),
+    Book(crate::bvc::Book),
     Colon,
     Comma,
     Dash,

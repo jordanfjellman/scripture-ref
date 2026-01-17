@@ -5,6 +5,8 @@ mod parser;
 mod scripture_ref_builder;
 mod scripture_span;
 
+use std::str::FromStr;
+
 use bvc::{Book, Chapter, ChapterNumber, Spanned, Verse, VerseNumber, VersePartLabel};
 use canon::{InCanon, ProtestantCanon};
 use lexer::Lexer;
@@ -146,13 +148,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:#034b}", verse_span.start_position()?.get());
     println!("{:#034b}\n", verse_span.end_position()?.get());
 
-    // let lexer = Lexer::new("Psalms 1:10");
-    // let mut parser = parser::Parser::new("Genesis 1:1");
-    // let parsed = parser.parse()?;
-    // println!("{parsed}");
+    let mut lexer = Lexer::new("1 Kings 1:10");
+    println!("lexer: {:?}", lexer.next());
+
+    let mut parser = parser::Parser::new("1 kings 1:1");
+    let parsed = parser.parse()?;
+    println!("parser: {parsed}");
 
     let (book, bytes) = Book::parse("1 kings")?;
     println!("{book}, {bytes}");
+
+    let ref_str = ScriptureRef::from_str("1 Kings 1:1-2; 3:4-5; Genesis 1:2,5a")?;
+    println!("{ref_str}");
+
+    let bad_ref_str = ScriptureRef::from_str("bad ref")?;
+    println!("{bad_ref_str:?}");
 
     Ok(())
 }

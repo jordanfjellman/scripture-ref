@@ -1,361 +1,313 @@
-use core::panic;
-use std::collections::HashMap;
-
-use crate::domain::book::Book;
+use crate::bvc::{Book, ChapterNumber, VerseNumber};
 use crate::parser::token_tree::Node;
+use crate::scripture_ref_builder::{
+    ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
+};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum VerseRefNumber {
-    Verse(u8),
-    Phrase(u8, char),
-}
+// IN_BOOK
+// |__ Book(john)
+// |__ AND               # ;
+//     |__ IN_CHAPTER
+//     |   |__ Number(2) # chapter
+//     |   |__ Number(1) # verse
+//     |__ IN_CHAPTER
+//         |__ Number(1) # chapter
+//         |__ Number(1) # verse
+//
+// IN_BOOK
+// |__ Book(john)
+// |__ IN_CHAPTER
+//     |__ Number(1)         # chapter
+//     |__ SELECT            # ,
+//         |__ Number(5)     # verse
+//         |__ THROUGH       # -
+//             |__ Number(2) # verse
+//             |__ Number(1) # verse
 
-type ChapterRefNumber = u8;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct VerseRef(ChapterRefNumber, VerseRefNumber);
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct PassageRef(VerseRef, VerseRef);
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum VerseSelection {
-    VerseSelection(VerseRef),
-    PassageSelection(PassageRef),
-}
-
-enum ScriptureRefNumber {
-    Chapter(u8),
-    Verse(u8, u8),
-    Phrase(u8, u8, char),
-}
-
-struct ScriptureRefSelectionBuilder {
+#[derive(Debug, Clone, Copy)]
+struct InterpreterContext {
     book: Option<Book>,
+    chapter: Option<ChapterNumber>,
 }
 
-impl ScriptureRefSelectionBuilder {
+impl InterpreterContext {
     fn new() -> Self {
         Self {
             book: None,
-            // scripture: Vec::new(),
+            chapter: None,
         }
     }
 
-    fn with_book(mut self, book: Book) -> Self {
-        self.book = Some(book);
+    fn from_book(book: Book) -> Self {
+        Self {
+            book: Some(book),
+            chapter: None,
+        }
+    }
+
+    fn with_chapter(mut self, chapter: ChapterNumber) -> Self {
+        self.chapter = Some(chapter);
         self
     }
 
-    // fn add_scripture(mut self, scripture: ScriptureRef) -> Self {
-    //     self.scripture.push(scripture);
-    //     self
-    // }
-}
-
-// impl TryFrom<ScriptureRefSelectionBuilder> for ScriptureRefSelection {
-//     type Error = String;
-//
-//     fn try_from(builder: ScriptureRefSelectionBuilder) -> Result<Self, Self::Error> {
-//         todo!()
-//     }
-// }
-
-// struct VerseRefNumber(ScriptureRefNumber);
-// struct PassageRefNumber(ScriptureRefNumber, ScriptureRefNumber);
-
-#[derive(Debug)]
-enum State {
-    Initial,
-    Operating,
-    Done,
-}
-
-#[derive(Debug)]
-pub struct ParsedScriptureRef {
-    pub book: Option<Book>,
-    // selection is a map of chapter to verse,passages
-    pub verse_selection: HashMap<u8, Vec<VerseSelection>>,
-}
-
-impl ParsedScriptureRef {
-    fn new() -> Self {
-        Self {
-            book: None,
-            verse_selection: HashMap::new(),
-        }
-    }
-
-    fn set_book(&mut self, book: Book) {
-        self.book = Some(book)
-    }
-
-    fn add_verse_selection(&mut self, chapter: &u8, selection: VerseSelection) {
-        self.verse_selection
-            .entry(*chapter)
-            .and_modify(|v| v.push(selection))
-            .or_insert_with(|| vec![selection]);
+    fn reset_chapter(mut self) -> Self {
+        self.chapter = None;
+        self
     }
 }
 
-#[derive(Debug)]
-pub struct Context {
-    state: State,
-    pub result: ParsedScriptureRef,
+impl std::default::Default for InterpreterContext {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
-impl Context {
-    pub fn new() -> Self {
-        Self {
-            state: State::Initial,
-            result: ParsedScriptureRef::new(),
-        }
+pub(crate) fn interpret(node: Node) -> Result<ScriptureRef, String> {
+    interpret_with_context(node, &InterpreterContext::default())
+}
+
+fn interpret_with_context(node: Node, ctx: &InterpreterContext) -> Result<ScriptureRef, String> {
+    match node {
+        Node::InBook(book, inner) => interpret_in_book(book, *inner),
+        Node::InChapter(chapter, inner) => interpret_in_chapter(chapter, *inner, ctx),
+        Node::Number(verse_number) => interpret_number(verse_number, ctx),
+        Node::And(left, right) => interpret_and(*left, *right, ctx),
+        Node::Select(left, right) => interpret_select(*left, *right, ctx),
+        Node::Through(left, right) => interpret_through(*left, *right, ctx),
+        Node::Following(following) => interpret_following(*following),
+        Node::Nil => interpret_nil(ctx),
+        Node::Book(book) => interpret_book(book),
     }
+}
 
-    // IN_BOOK
-    // |__ Book(john)
-    // |__ AND               # ;
-    //     |__ IN_CHAPTER
-    //     |   |__ Number(2) # chapter
-    //     |   |__ Number(1) # verse
-    //     |__ IN_CHAPTER
-    //         |__ Number(1) # chapter
-    //         |__ Number(1) # verse
-    //
-    // IN_BOOK
-    // |__ Book(john)
-    // |__ IN_CHAPTER
-    //     |__ Number(1)         # chapter
-    //     |__ SELECT            # ,
-    //         |__ Number(5)     # verse
-    //         |__ THROUGH       # -
-    //             |__ Number(2) # verse
-    //             |__ Number(1) # verse
+fn interpret_in_book(book: Book, inner: Node) -> Result<ScriptureRef, String> {
+    let new_ctx = InterpreterContext::from_book(book);
 
-    pub fn transition(&mut self, node: Node) -> Result<(), miette::Error> {
-        match self.state {
-            State::Initial => self.process_node(node),
-            State::Operating => {
-                self.state = State::Done;
-                Ok(())
+    if book.chapter_count() == 1 {
+        match &inner {
+            Node::Number(v) => {
+                return ScriptureVerseRef::builder()
+                    .book(book)
+                    .chapter(ChapterNumber::default())
+                    .try_verse(*v)?
+                    .build()
+                    .map(|v| v.into());
             }
-            State::Done => Ok(()), // stop processing
-        }
-    }
-
-    fn process_node(&mut self, node: Node) -> Result<(), miette::Error> {
-        match node {
-            Node::And(_, _) => todo!(),
-            Node::Book(book) => {
-                self.state = State::Operating;
-                self.result.set_book(book);
-                Ok(())
-            }
-            Node::InBook(book, _) => {
-                self.state = State::Operating;
-                self.result.set_book(book);
-                Ok(())
-            }
-            Node::InChapter(chapter, verse_node) => self.process_verse_node(chapter, *verse_node),
-            Node::Through(lhs, rhs) => {
-                self.process_node(*lhs);
-                self.process_node(*rhs);
-                Ok(())
-            }
-            Node::Select(_, _) => todo!(),
-            Node::Number(_) => todo!(),
-            Node::Nil => todo!(),
-        }
-    }
-
-    fn process_verse_node(&mut self, chapter: u8, node: Node) -> Result<(), miette::Error> {
-        match node {
-            Node::And(first, remaining) => match (*first, *remaining) {
-                // TODO: Does joining these improve performance/maintainabilty at the expense of
-                // easy sorting?
-                (Node::Number(v), rhs) => {
-                    self.result.add_verse_selection(
-                        &chapter,
-                        VerseSelection::VerseSelection(VerseRef(chapter, VerseRefNumber::Verse(v))),
-                    );
-                    self.process_verse_node(chapter, rhs)?;
-                    Ok(())
+            Node::Through(left, right) => {
+                if let (Node::Number(start), Node::Number(end)) = (left.as_ref(), right.as_ref()) {
+                    return ScripturePassageRef::builder()
+                        .start_at(
+                            ScriptureVerseRef::builder()
+                                .book(book)
+                                .chapter(ChapterNumber::default())
+                                .try_verse(*start)?
+                                .build()
+                                .map(|v| v.into())?,
+                        )
+                        .end_at(
+                            ScriptureVerseRef::builder()
+                                .book(book)
+                                .chapter(ChapterNumber::default())
+                                .try_verse(*end)?
+                                .build()
+                                .map(|v| v.into())?,
+                        )
+                        .build()
+                        .map(|p| p.into());
                 }
-                (lhs, Node::Number(v)) => {
-                    self.process_verse_node(chapter, lhs)?;
-                    self.result.add_verse_selection(
-                        &chapter,
-                        VerseSelection::VerseSelection(VerseRef(chapter, VerseRefNumber::Verse(v))),
-                    );
-                    Ok(())
-                }
-                (lhs, rhs) => {
-                    self.process_verse_node(chapter, lhs)?;
-                    self.process_verse_node(chapter, rhs)?;
-                    Ok(())
-                }
-            },
-            Node::InChapter(_, _) => todo!(),
-            Node::Through(start, end) => match (*start, *end) {
-                (Node::Number(s), Node::Number(e)) => {
-                    self.result.add_verse_selection(
-                        &chapter,
-                        VerseSelection::PassageSelection(PassageRef(
-                            VerseRef(chapter, VerseRefNumber::Verse(s)),
-                            VerseRef(chapter, VerseRefNumber::Verse(e)),
-                        )),
-                    );
-                    Ok(())
-                }
-                _ => panic!("must have start and end numbers"),
-            },
-            Node::Select(_, _) => todo!(),
-            Node::Number(verse_number) => {
-                self.result.add_verse_selection(
-                    &chapter,
-                    VerseSelection::VerseSelection(VerseRef(
-                        chapter,
-                        VerseRefNumber::Verse(verse_number),
-                    )),
-                );
-                Ok(())
             }
-            other => {
-                miette::bail!("cannot process {other} as a verse node");
+            Node::Select(_, _) | Node::And(_, _) | Node::Following(_) => {
+                let ctx = new_ctx.with_chapter(ChapterNumber::default());
+                return interpret_with_context(inner, &ctx);
             }
+            _ => {}
         }
     }
+
+    interpret_with_context(inner, &new_ctx)
+}
+
+fn interpret_in_chapter(
+    chapter: u8,
+    inner: Node,
+    ctx: &InterpreterContext,
+) -> Result<ScriptureRef, String> {
+    println!("interpret_in_chapter {chapter} {inner:?}");
+    let chapter_num = ChapterNumber::try_from(chapter)?;
+    let new_ctx = ctx.with_chapter(chapter_num);
+    interpret_with_context(inner, &new_ctx)
+}
+
+fn interpret_number(number: u8, ctx: &InterpreterContext) -> Result<ScriptureRef, String> {
+    let book = ctx.book.ok_or("no book in context")?;
+    match ctx.chapter {
+        Some(chapter) => ScriptureVerseRef::builder()
+            .book(book)
+            .chapter(chapter)
+            .try_verse(number)?
+            .build()
+            .map(|v| v.into()),
+        None => ScripturePassageRef::builder()
+            .start_at(
+                ScriptureVerseRef::builder()
+                    .book(book)
+                    .try_chapter(number)?
+                    .verse(VerseNumber::default())
+                    .build()
+                    .map(|v| v.into())?,
+            )
+            .end_at(
+                ScriptureVerseRef::builder()
+                    .book(book)
+                    .try_chapter(number)?
+                    .try_verse(book.max_verses_in_chapter(number)?)?
+                    .build()
+                    .map(|v| v.into())?,
+            )
+            .build()
+            .map(|p| p.into()),
+    }
+}
+
+// semicolon
+fn interpret_and(
+    left: Node,
+    right: Node,
+    ctx: &InterpreterContext,
+) -> Result<ScriptureRef, String> {
+    let left = interpret_with_context(left, &ctx)?;
+    let right_ctx = ctx.reset_chapter();
+    let right = interpret_with_context(right, &right_ctx)?;
+    ScriptureSelectionRef::builder()
+        .add_scripture_ref(left)
+        .add_scripture_ref(right)
+        .build()
+        .map(|s| s.into())
+}
+
+// comma
+fn interpret_select(
+    left: Node,
+    right: Node,
+    ctx: &InterpreterContext,
+) -> Result<ScriptureRef, String> {
+    let left = interpret_with_context(left, &ctx)?;
+    let right = interpret_with_context(right, &ctx)?;
+    ScriptureSelectionRef::builder()
+        .add_scripture_ref(left)
+        .add_scripture_ref(right)
+        .build()
+        .map(|s| s.into())
+}
+
+// hyphen
+fn interpret_through(
+    left: Node,
+    right: Node,
+    ctx: &InterpreterContext,
+) -> Result<ScriptureRef, String> {
+    let left = interpret_with_context(left, &ctx)?;
+    let right = interpret_with_context(right, &ctx)?;
+    println!("{left:?} {right:?}");
+    ScripturePassageRef::builder()
+        .start_at(left.try_into()?)
+        .end_at(right.try_into()?)
+        .build()
+        .map(|p| p.into())
+}
+
+// ff
+fn interpret_following(_node: Node) -> Result<ScriptureRef, String> {
+    todo!()
+}
+
+fn interpret_nil(_ctx: &InterpreterContext) -> Result<ScriptureRef, String> {
+    // TODO: Book, but had no other detail; should be a specific error
+    Err("unexpected Nil node".to_string())
+}
+
+// standalone book
+fn interpret_book(book: Book) -> Result<ScriptureRef, String> {
+    Err(format!("unexpected stand alone book node {book}"))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{
-        context::{PassageRef, VerseRef, VerseRefNumber, VerseSelection},
-        token_tree::Node,
-    };
-
-    use super::Context;
-
-    #[test]
-    fn process_in_chapter_node_with_single_verse() {
-        let ast = Node::InChapter(1, Box::new(Node::Number(1)));
-        let mut context = Context::new();
-        context.transition(ast).expect("failed to transition ast");
-        assert_eq!(
-            context.result.verse_selection.get(&1),
-            Some(&vec![VerseSelection::VerseSelection(VerseRef(
-                1,
-                VerseRefNumber::Verse(1)
-            ))])
-        );
+    use super::*;
+    use crate::parser::Parser;
+    fn parse_and_interpret(input: &str) -> Result<ScriptureRef, String> {
+        let mut parser = Parser::new(input);
+        let ast = parser.parse().map_err(|e| e.to_string())?;
+        interpret(ast)
     }
 
     #[test]
-    fn process_in_chapter_node_with_consecutive_verses() {
-        let ast = Node::InChapter(
-            1,
-            Box::new(Node::Through(
-                Box::new(Node::Number(1)),
-                Box::new(Node::Number(3)),
-            )),
-        );
-        let mut context = Context::new();
-        context.transition(ast).expect("failed to transition ast");
-        assert_eq!(
-            context.result.verse_selection.get(&1),
-            Some(&vec![VerseSelection::PassageSelection(PassageRef(
-                VerseRef(1, VerseRefNumber::Verse(1)),
-                VerseRef(1, VerseRefNumber::Verse(3)),
-            ))])
-        );
+    fn single_verse() {
+        let result = parse_and_interpret("Genesis 1:1").unwrap();
+        assert_eq!(result.to_string(), "Genesis 1:1");
     }
 
     #[test]
-    fn process_in_chapter_node_with_nonconsecutive_verses() {
-        let ast = Node::InChapter(
-            1,
-            Box::new(Node::And(
-                Box::new(Node::Number(1)),
-                Box::new(Node::Number(3)),
-            )),
-        );
-        let mut context = Context::new();
-        context.transition(ast).expect("failed to transition ast");
-        assert_eq!(
-            context.result.verse_selection.get(&1),
-            Some(&vec![
-                VerseSelection::VerseSelection(VerseRef(1, VerseRefNumber::Verse(1))),
-                VerseSelection::VerseSelection(VerseRef(1, VerseRefNumber::Verse(3)))
-            ])
-        );
+    fn passage() {
+        let result = parse_and_interpret("Genesis 1:1-2").unwrap();
+        println!("{result:?}");
+        assert_eq!(result.to_string(), "Genesis 1:1-2");
     }
 
     #[test]
-    fn process_in_chapter_node_with_nonconsecutive_and_consecutive_verses() {
-        let ast = Node::InChapter(
-            1,
-            Box::new(Node::And(
-                Box::new(Node::Number(1)),
-                Box::new(Node::Through(
-                    Box::new(Node::Number(3)),
-                    Box::new(Node::Number(5)),
-                )),
-            )),
-        );
-        let mut context = Context::new();
-        context.transition(ast).expect("failed to transition ast");
-        assert_eq!(
-            context.result.verse_selection.get(&1),
-            Some(&vec![
-                VerseSelection::VerseSelection(VerseRef(1, VerseRefNumber::Verse(1))),
-                VerseSelection::PassageSelection(PassageRef(
-                    VerseRef(1, VerseRefNumber::Verse(3)),
-                    VerseRef(1, VerseRefNumber::Verse(5))
-                ))
-            ])
-        );
+    fn selection_comma() {
+        let result = parse_and_interpret("Genesis 1:1,3").unwrap();
+        // Selection of two verses in same chapter
+        assert!(matches!(result, ScriptureRef::Selection(_)));
     }
 
     #[test]
-    fn process_in_chapter_node_with_consecutive_and_nonconsecutive_verses() {
-        let ast = Node::InChapter(
-            1,
-            Box::new(Node::And(
-                Box::new(Node::Through(
-                    Box::new(Node::Number(1)),
-                    Box::new(Node::Number(3)),
-                )),
-                Box::new(Node::Number(5)),
-            )),
-        );
-        let mut context = Context::new();
-        context.transition(ast).expect("failed to transition ast");
-        assert_eq!(
-            context.result.verse_selection.get(&1),
-            Some(&vec![
-                VerseSelection::PassageSelection(PassageRef(
-                    VerseRef(1, VerseRefNumber::Verse(1)),
-                    VerseRef(1, VerseRefNumber::Verse(3))
-                )),
-                VerseSelection::VerseSelection(VerseRef(1, VerseRefNumber::Verse(5))),
-            ])
-        );
+    fn verse_selection_semicolon() {
+        let result = parse_and_interpret("Genesis 1:1; 2:3").unwrap();
+        assert!(matches!(result, ScriptureRef::Selection(_)));
     }
 
     #[test]
-    fn process_consecutive_verses_through_multiple_chapters() {
-        let ast = Node::Through(
-            Box::new(Node::InChapter(1, Box::new(Node::Number(1)))),
-            Box::new(Node::InChapter(2, Box::new(Node::Number(2)))),
-        );
-        let mut context = Context::new();
-        context.transition(ast).expect("failed to transition ast");
-        assert_eq!(
-            context.result.verse_selection.get(&1),
-            Some(&vec![VerseSelection::PassageSelection(PassageRef(
-                VerseRef(1, VerseRefNumber::Verse(1)),
-                VerseRef(2, VerseRefNumber::Verse(2))
-            )),])
-        );
+    fn complex_selection() {
+        let result = parse_and_interpret("Genesis 1:1,3; 2:12").unwrap();
+        assert!(matches!(result, ScriptureRef::Selection(_)));
+    }
+
+    #[test]
+    fn cross_chapter_passage() {
+        let result = parse_and_interpret("Genesis 1:5-2:3").unwrap();
+        assert!(matches!(result, ScriptureRef::Passage(_)));
+    }
+
+    #[test]
+    fn chapter_only() {
+        let result = parse_and_interpret("Genesis 1").unwrap();
+        // Should be passage from 1:1 to 1:31
+        assert!(matches!(result, ScriptureRef::Passage(_)));
+    }
+
+    #[test]
+    fn following_verses() {
+        let result = parse_and_interpret("Genesis 1:5ff").unwrap();
+        // Should be passage from 1:5 to 1:31
+        assert!(matches!(result, ScriptureRef::Passage(_)));
+    }
+
+    #[test]
+    fn single_chapter_book_verse() {
+        let result = parse_and_interpret("Obadiah 5").unwrap();
+        assert_eq!(result.to_string(), "Obadiah 1:5");
+    }
+
+    #[test]
+    fn single_chapter_book_explicit() {
+        let result = parse_and_interpret("Obadiah 1:5").unwrap();
+        assert_eq!(result.to_string(), "Obadiah 1:5");
+    }
+
+    #[test]
+    fn single_chapter_book_3john() {
+        let result = parse_and_interpret("3 John 5").unwrap();
+        assert_eq!(result.to_string(), "3 John 1:5");
     }
 }

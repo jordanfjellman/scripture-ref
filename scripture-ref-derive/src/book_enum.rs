@@ -116,10 +116,11 @@ impl BookEnumData {
             impl #enum_name {
                 pub(crate) fn parse(s: &str) -> Result<(Self, usize), String> {
                     // get first character and length (1 space per whitespace run)
-                    match dispatch_key(s) {
+                    let matched: Option<(Self, usize)> = match dispatch_key(s) {
                         #(#parsed_book_arms)*
-                        _ => Err(format!("not a valid book: {}", s)),
-                    }
+                        _ => None
+                    };
+                    matched.ok_or_else(|| format!("not a valid book: {}", s))
                 }
             }
 
@@ -151,18 +152,29 @@ impl BookEnumData {
             .iter()
             .map(|((first_char, len), mappings)| {
                 let first_byte = Literal::byte_character(*first_char as u8);
-                let by_len_arms: Vec<proc_macro2::TokenStream> = mappings
+                let mut by_len_arms: Vec<proc_macro2::TokenStream> = mappings
                     .iter()
-                    .map(|m| {
+                    .enumerate()
+                    .map(|(i, m)| {
                         let variant_name = &m.variant_name;
                         let variant_name = format_ident!("{}", variant_name);
                         let name_bytes = Literal::byte_string(&m.name.as_bytes());
-                        quote! {
-                            if let Some(len) = match_normalized(s, #name_bytes) { return Ok((#enum_name::#variant_name, len)); }
-                            return Err(format!("not a valid book: {}", s));
+                        if i == 0 {
+                            quote! {
+                                if let Some(len) = match_normalized(s, #name_bytes) {
+                                    Some((#enum_name::#variant_name, len))
+                                }
+                            }
+                        } else {
+                            quote! {
+                                else if let Some(len) = match_normalized(s, #name_bytes) {
+                                    Some((#enum_name::#variant_name, len))
+                                }
+                            }
                         }
                     })
                     .collect();
+                by_len_arms.push(quote! { else { None } });
                 quote! {
                     (Some(#first_byte), #len) => {
                         #(#by_len_arms)*

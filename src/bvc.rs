@@ -441,20 +441,8 @@ impl TryFrom<&str> for Book {
     type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let normalized = value.to_lowercase(); // TODO: Avoid allocation
-
-        #[cfg(feature = "lang-en")]
-        match normalized.as_str() {
-            "genesis" | "gen" | "gn" => Ok(Book::Genesis),
-            "1 kings" => Ok(Book::FirstKings),
-            "song of songs" | "song of solomon" => Ok(Book::SongOfSongs),
-            "obadiah" => Ok(Book::Obadiah),
-            "matthew" => Ok(Book::Matthew),
-            _ => Err(format!("not a valid book: {}", value)),
-        }
-
-        #[cfg(not(any(feature = "lang-en")))]
-        compile_error!("at least one language feature must be enabled (e.g., lang-en)");
+        let book = Self::parse(value)?;
+        Ok(book.0)
     }
 }
 

@@ -161,6 +161,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ref_str = ScriptureRef::from_str("1 Kings 1:1-2a, 3:4b-5")?;
     println!("many verses...{ref_str}");
 
+    let gn = Book::try_from("gn")?;
+    println!("gn: {gn:?}");
+
+    let can = Book::parse("can")?;
+    println!("can: {can:?}");
+
     // let bad_ref_str = ScriptureRef::from_str("bad ref")?;
     // println!("{bad_ref_str:?}");
 

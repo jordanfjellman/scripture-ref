@@ -98,18 +98,18 @@ impl<'de> Iterator for Lexer<'de> {
                     let potential_book = extract_potential_book_name(c_onwards);
 
                     // Try parsing as a book (handles "Song of Songs", "Psalms", etc.)
-                    if !potential_book.is_empty() {
-                        if let Ok((book, bytes_consumed)) = Book::parse(potential_book) {
-                            self.rest = &c_onwards[bytes_consumed..];
-                            self.current_byte += bytes_consumed - c.len_utf8();
-                            return Some(Ok(Token::Book(book)));
-                        }
+                    if !potential_book.is_empty()
+                        && let Ok((book, bytes_consumed)) = Book::parse(potential_book)
+                    {
+                        self.rest = &c_onwards[bytes_consumed..];
+                        self.current_byte += bytes_consumed - c.len_utf8();
+                        return Some(Ok(Token::Book(book)));
                     }
 
                     // Not a book - check for "ff" or other identifiers
                     let first_non_identifier = c_onwards
                         .find(|c| !matches!(c, 'a'..='z' | 'A'..='Z'))
-                        .unwrap_or_else(|| c_onwards.len());
+                        .unwrap_or(c_onwards.len());
                     let literal = &c_onwards[..first_non_identifier];
                     let bytes_from_chars = literal.len() - c.len_utf8() + 1;
                     self.rest = &c_onwards[bytes_from_chars..];

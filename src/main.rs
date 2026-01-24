@@ -16,6 +16,10 @@ use scripture_ref_builder::{
 use scripture_span::ScriptureSpan;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let single_verse_to_validate = "3 john 1:1"; // can only completely validate with canon
+    let verse_to_extract_from_text = "God said in Genesis 1:1, ..."; // Extract verse(s) from text
+    let book_to_extract_from_text = "God said in Genesis, ..."; // Should be specific error type
+
     let verse_ref = ScriptureVerseRef::builder()
         .try_book("Genesis")?
         .try_chapter("1")?
@@ -167,8 +171,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let can = Book::parse("can")?;
     println!("can: {can:?}");
 
-    // let bad_ref_str = ScriptureRef::from_str("bad ref")?;
-    // println!("{bad_ref_str:?}");
+    let chapter_only_ref = ScriptureRef::from_str("3 john 1")?;
+    println!("{chapter_only_ref}");
+
+    let book_only_ref = ScriptureRef::from_str("3 john")?;
+    println!("{book_only_ref:?}");
+
+    let bad_ref_str = ScriptureRef::from_str("bad ref")?;
+    println!("{bad_ref_str:?}");
 
     Ok(())
 }

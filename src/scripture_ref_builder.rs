@@ -1,5 +1,5 @@
-use crate::{
-    Book, Chapter, ChapterNumber, Verse, VerseNumber, VersePartLabel, bvc::ScripturePosition,
+use crate::bvc::{
+    Book, Chapter, ChapterNumber, ScripturePosition, Verse, VerseNumber, VersePartLabel,
 };
 
 #[derive(Debug, Clone)]
@@ -10,7 +10,7 @@ pub(crate) enum SelectionPart {
 
 // TODO: import instead
 #[derive(Debug)]
-pub(crate) enum ScriptureRef {
+pub enum ScriptureRef {
     Verse(ScriptureVerseRef),
     Passage(ScripturePassageRef),
     Selection(ScriptureSelectionRef),

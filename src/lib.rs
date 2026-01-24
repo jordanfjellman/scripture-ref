@@ -1,4 +1,9 @@
-// pub use bvc::*;
+mod bvc;
+mod lexer;
+mod parser;
+mod scripture_ref_builder;
+
+pub use scripture_ref_builder::ScriptureRef;
 
 pub struct ScriptureReferenceBuilder;
 

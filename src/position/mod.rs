@@ -1,7 +1,7 @@
-use crate::{
-    bvc::{Book, Chapter, HasBook, Verse, VersePart},
-    canon::{Canonical, InCanon},
-};
+pub mod canon;
+
+use crate::bvc::{Book, Chapter, HasBook, Verse, VersePart};
+use canon::{Canonical, InCanon};
 
 #[derive(Debug)]
 pub(crate) struct ScripturePosition(u32);

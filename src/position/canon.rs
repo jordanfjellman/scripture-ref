@@ -1,4 +1,4 @@
-use crate::Book;
+use crate::bvc::Book;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ProtestantCanon;

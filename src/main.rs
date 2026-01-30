@@ -1,16 +1,19 @@
+#![allow(unused)]
+
 mod bvc;
-mod canon;
 mod parse;
+mod position;
 mod refs;
-mod scripture_span;
 
 use std::str::FromStr;
 
 use bvc::{Book, Chapter, ChapterNumber, Spanned, Verse, VerseNumber, VersePartLabel};
-use canon::{InCanon, ProtestantCanon};
 use parse::lexer::Lexer;
+use position::{
+    ScriptureSpan,
+    canon::{InCanon, ProtestantCanon},
+};
 use refs::{ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef};
-use scripture_span::ScriptureSpan;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let single_verse_to_validate = "3 john 1:1"; // can only completely validate with canon

@@ -49,3 +49,29 @@ impl TryFrom<&str> for VerseNumber {
         VerseNumber::try_from(num)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn verse_number_valid_range(n in 1u8..=176u8) {
+            let result = VerseNumber::new(n);
+            prop_assert!(result.is_ok());
+            prop_assert_eq!(result.unwrap().0, n);
+        }
+
+        #[test]
+        fn verse_number_invalid_below(n in 0u8..1u8) {
+            prop_assert!(VerseNumber::new(n).is_err());
+        }
+
+        #[test]
+        fn verse_number_invalid_above(n in 177u8..=255u8) {
+            prop_assert!(VerseNumber::new(n).is_err());
+        }
+    }
+}

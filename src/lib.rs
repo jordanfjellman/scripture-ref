@@ -5,10 +5,6 @@ mod scripture_ref_builder;
 
 pub use scripture_ref_builder::ScriptureRef;
 
-pub struct ScriptureReferenceBuilder;
-
-impl ScriptureReferenceBuilder {}
-
 pub struct ScriptureReferenceSeeker;
 
 impl ScriptureReferenceSeeker {}

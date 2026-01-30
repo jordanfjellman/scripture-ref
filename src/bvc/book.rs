@@ -104,19 +104,7 @@ impl Book {
 
 impl std::fmt::Display for Book {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // This is treated as code so it's english-only, like error messages.
-        match self {
-            Book::Genesis => write!(f, "Genesis"),
-            Book::Exodus => write!(f, "Exodus"),
-            Book::FirstKings => write!(f, "1 Kings"),
-            Book::Psalms => write!(f, "Psalms"),
-            Book::SongOfSongs => write!(f, "Song of Songs"),
-            Book::Obadiah => write!(f, "Obadiah"),
-            Book::Matthew => write!(f, "Matthew"),
-            Book::John => write!(f, "John"),
-            Book::ThirdJohn => write!(f, "3 John"),
-            Book::Revelation => write!(f, "Revelation"),
-        }
+        write!(f, "{}", self.canonical_name())
     }
 }
 

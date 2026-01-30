@@ -357,6 +357,7 @@ pub(crate) enum Book {
     Revelation = 66,
 }
 
+// TODO: Add to macro. This logic would change based on the use of the derive macro
 impl Book {
     const ALL: [Self; 66] = [
         Self::Genesis,
@@ -427,33 +428,77 @@ impl Book {
         Self::Revelation,
     ];
 
-    const OLD_TESTAMENT: [Self; 5] = [
-        // TODO: update to 39
+    const OLD_TESTAMENT: [Self; 39] = [
         Self::Genesis,
         Self::Exodus,
+        Self::Leviticus,
+        Self::Numbers,
+        Self::Deuteronomy,
+        Self::Joshua,
+        Self::Judges,
+        Self::Ruth,
+        Self::FirstSamuel,
+        Self::SecondSamuel,
         Self::FirstKings,
+        Self::SecondKings,
+        Self::FirstChronicles,
+        Self::SecondChronicles,
+        Self::Ezra,
+        Self::Nehemiah,
+        Self::Esther,
+        Self::Job,
+        Self::Psalms,
+        Self::Proverbs,
+        Self::Ecclesiastes,
         Self::SongOfSongs,
+        Self::Isaiah,
+        Self::Jeremiah,
+        Self::Lamentations,
+        Self::Ezekiel,
+        Self::Daniel,
+        Self::Hosea,
+        Self::Joel,
+        Self::Amos,
         Self::Obadiah,
+        Self::Jonah,
+        Self::Micah,
+        Self::Nahum,
+        Self::Habakkuk,
+        Self::Zephaniah,
+        Self::Haggai,
+        Self::Zechariah,
+        Self::Malachi,
     ];
 
-    const NEW_TESTAMENT: [Self; 1] = [Self::Matthew]; // TODO: update to 27
-
-    const BIBLE: [Self; 6] = {
-        // TODO: update to 66
-        let mut all = [Book::Genesis; 6];
-        let mut i = 0;
-        while i < Self::OLD_TESTAMENT.len() {
-            all[i] = Self::OLD_TESTAMENT[i];
-            i += 1;
-        }
-        let mut j = 0;
-        while j < Self::NEW_TESTAMENT.len() {
-            all[i] = Self::NEW_TESTAMENT[j];
-            i += 1;
-            j += 1;
-        }
-        all
-    };
+    const NEW_TESTAMENT: [Self; 27] = [
+        Self::Matthew,
+        Self::Mark,
+        Self::Luke,
+        Self::John,
+        Self::Acts,
+        Self::Romans,
+        Self::FirstCorinthians,
+        Self::SecondCorinthians,
+        Self::Galatians,
+        Self::Ephesians,
+        Self::Philippians,
+        Self::Colossians,
+        Self::FirstThessalonians,
+        Self::SecondThessalonians,
+        Self::FirstTimothy,
+        Self::SecondTimothy,
+        Self::Titus,
+        Self::Philemon,
+        Self::Hebrews,
+        Self::James,
+        Self::FirstPeter,
+        Self::SecondPeter,
+        Self::FirstJohn,
+        Self::SecondJohn,
+        Self::ThirdJohn,
+        Self::Jude,
+        Self::Revelation,
+    ];
 
     pub fn all() -> &'static [Self] {
         &Self::ALL
@@ -465,10 +510,6 @@ impl Book {
 
     pub fn new_testament() -> &'static [Self] {
         &Self::NEW_TESTAMENT
-    }
-
-    pub fn bible() -> &'static [Self] {
-        &Self::BIBLE
     }
 }
 

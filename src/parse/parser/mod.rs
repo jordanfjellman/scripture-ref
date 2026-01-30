@@ -2,13 +2,11 @@ use std::iter::Peekable;
 
 use crate::{
     bvc::{ChapterNumber, VerseNumber},
-    lexer::Token,
+    parse::lexer::{Lexer, Token},
 };
 use binding_power::{BindingPower, infix_binding_power};
 use operator::Op;
 use token_tree::Node;
-
-use crate::lexer::Lexer;
 
 pub mod binding_power;
 pub mod context;

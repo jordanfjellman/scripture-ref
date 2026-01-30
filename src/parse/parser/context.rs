@@ -1,28 +1,8 @@
 use crate::bvc::{Book, Chapter, ChapterNumber, VerseNumber};
-use crate::parser::token_tree::Node;
+use crate::parse::parser::token_tree::Node;
 use crate::scripture_ref_builder::{
     ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
 };
-
-// IN_BOOK
-// |__ Book(john)
-// |__ AND               # ;
-//     |__ IN_CHAPTER
-//     |   |__ Number(2) # chapter
-//     |   |__ Number(1) # verse
-//     |__ IN_CHAPTER
-//         |__ Number(1) # chapter
-//         |__ Number(1) # verse
-//
-// IN_BOOK
-// |__ Book(john)
-// |__ IN_CHAPTER
-//     |__ Number(1)         # chapter
-//     |__ SELECT            # ,
-//         |__ Number(5)     # verse
-//         |__ THROUGH       # -
-//             |__ Number(2) # verse
-//             |__ Number(1) # verse
 
 #[derive(Debug, Clone, Copy)]
 struct InterpreterContext {

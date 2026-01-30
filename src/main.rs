@@ -1,7 +1,6 @@
 mod bvc;
 mod canon;
-mod lexer;
-mod parser;
+mod parse;
 mod scripture_ref_builder;
 mod scripture_span;
 
@@ -9,7 +8,7 @@ use std::str::FromStr;
 
 use bvc::{Book, Chapter, ChapterNumber, Spanned, Verse, VerseNumber, VersePartLabel};
 use canon::{InCanon, ProtestantCanon};
-use lexer::Lexer;
+use parse::lexer::Lexer;
 use scripture_ref_builder::{
     ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
 };
@@ -155,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut lexer = Lexer::new("1 Kings 1:10");
     println!("lexer: {:?}", lexer.next());
 
-    let mut parser = parser::Parser::new("1 kings 1:10");
+    let mut parser = parse::parser::Parser::new("1 kings 1:10");
     let parsed = parser.parse()?;
     println!("parser: {parsed}");
 

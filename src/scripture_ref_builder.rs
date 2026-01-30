@@ -381,7 +381,7 @@ impl std::str::FromStr for ScriptureRef {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use crate::parser::{Parser, context::interpret};
+        use crate::parse::parser::{Parser, context::interpret};
 
         let mut parser = Parser::new(s);
         let ast = parser.parse().map_err(|e| e.to_string())?;

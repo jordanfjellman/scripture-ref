@@ -1,6 +1,5 @@
 mod bvc;
-mod lexer;
-mod parser;
+mod parse;
 mod scripture_ref_builder;
 
 pub use scripture_ref_builder::ScriptureRef;

@@ -438,7 +438,7 @@ mod proptests {
     /// Helper functions module - Tests for extract_potential_book_name
     mod helper_functions {
         use super::*;
-        use crate::lexer::extract_potential_book_name;
+        use crate::parse::lexer::extract_potential_book_name;
 
         proptest! {
 

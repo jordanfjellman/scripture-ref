@@ -6,3 +6,5 @@
 # everyone who runs the test benefits from these saved cases.
 cc fccd80195d12493e8df9979dfa206724bc4a01ce01b9b8fd0ecfb26586b05894 # shrinks to input = "Genesis 1:1"
 cc ca4679430a3330e1fd42d85b35d8226b33e102a3c8de8d4abe45a3f8c87469a7 # shrinks to word = "can"
+cc 5fbf5aadeb5d82ceef9b5ad673f5d1a6d95194c4a3c4a2b610ce361c4a29a1bd # shrinks to book = Genesis, chapter = 1, v1 = 1, v2 = 11, part = 99
+cc 099b6c33ca9c6e308d8b828f482307f2b1eab30b0d0e0a626069073c64bfc720 # shrinks to book = Genesis, chapter = 1, verse = 1, part = 99

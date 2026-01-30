@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Bible");
     println!("=====");
-    for book in Book::bible() {
+    for book in Book::all() {
         for chapter_num in 1..=book.chapter_count() {
             let chapter_as_passage =
                 ScripturePassageRef::from(Chapter::new(*book, ChapterNumber::new(chapter_num)?)?);

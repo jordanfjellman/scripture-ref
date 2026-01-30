@@ -3,6 +3,10 @@ mod parse;
 mod position;
 mod refs;
 
+// Make testing module available for all test builds (lib and bin tests)
+#[cfg(any(test))]
+pub mod testing;
+
 use crate::refs::ScriptureRef;
 
 // #[macro_export]

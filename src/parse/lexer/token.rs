@@ -1,7 +1,7 @@
 use std::fmt;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Token {
+pub(crate) enum Token {
     Book(crate::bvc::Book),
     Colon,
     Comma,
@@ -18,15 +18,15 @@ pub enum Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Token::Book(b) => write!(f, "BOOK {b}"),
-            Token::Comma => write!(f, "COMMA null"),
-            Token::Colon => write!(f, "COLON null"),
-            Token::Dash => write!(f, "DASH null"),
-            Token::FF => write!(f, "FF null"),
-            Token::Number(n) => write!(f, "NUMBER {n}"),
-            Token::Period => write!(f, "PERIOD null"),
-            Token::SemiColon => write!(f, "SEMICOLON null"),
-            Token::VersePart(p) => write!(f, "VERSE_PART {p}"),
+            Token::Book(b) => write!(f, "{b}"),
+            Token::Colon => write!(f, ":"),
+            Token::Comma => write!(f, ","),
+            Token::Dash => write!(f, "-"),
+            Token::FF => write!(f, "ff"),
+            Token::Number(n) => write!(f, "{n}"),
+            Token::Period => write!(f, "."),
+            Token::SemiColon => write!(f, ";"),
+            Token::VersePart(p) => write!(f, "{}", (*p as char).to_string()),
         }
     }
 }

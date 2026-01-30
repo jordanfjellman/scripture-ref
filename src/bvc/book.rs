@@ -241,13 +241,15 @@ pub(crate) enum Book {
     #[chapters = "16"]
     #[verses = "31,16,23,21,13,20,40,13,27,33,34,31,13,40,58,24"]
     #[canonical_name = "1 Corinthians"]
-    #[abbreviations = "1 cor,1cor,1 co,1co,1 c,1c"]
+    //TODO: #[abbreviations = "1 cor,1cor,1 co,1co,1 c,1c"]
+    #[abbreviations = "1 cor,1cor,1 co,1co,1 c"]
     FirstCorinthians = 46,
 
     #[chapters = "13"]
     #[verses = "24,17,18,18,21,18,16,24,15,18,33,21,14"]
     #[canonical_name = "2 Corinthians"]
-    #[abbreviations = "2 cor,2cor,2 co,2co,2 c,2c"]
+    //TODO: #[abbreviations = "2 cor,2cor,2 co,2co,2 c,2c"]
+    #[abbreviations = "2 cor,2cor,2 co,2co,2 c"]
     SecondCorinthians = 47,
 
     #[chapters = "6"]
@@ -356,6 +358,75 @@ pub(crate) enum Book {
 }
 
 impl Book {
+    const ALL: [Self; 66] = [
+        Self::Genesis,
+        Self::Exodus,
+        Self::Leviticus,
+        Self::Numbers,
+        Self::Deuteronomy,
+        Self::Joshua,
+        Self::Judges,
+        Self::Ruth,
+        Self::FirstSamuel,
+        Self::SecondSamuel,
+        Self::FirstKings,
+        Self::SecondKings,
+        Self::FirstChronicles,
+        Self::SecondChronicles,
+        Self::Ezra,
+        Self::Nehemiah,
+        Self::Esther,
+        Self::Job,
+        Self::Psalms,
+        Self::Proverbs,
+        Self::Ecclesiastes,
+        Self::SongOfSongs,
+        Self::Isaiah,
+        Self::Jeremiah,
+        Self::Lamentations,
+        Self::Ezekiel,
+        Self::Daniel,
+        Self::Hosea,
+        Self::Joel,
+        Self::Amos,
+        Self::Obadiah,
+        Self::Jonah,
+        Self::Micah,
+        Self::Nahum,
+        Self::Habakkuk,
+        Self::Zephaniah,
+        Self::Haggai,
+        Self::Zechariah,
+        Self::Malachi,
+        Self::Matthew,
+        Self::Mark,
+        Self::Luke,
+        Self::John,
+        Self::Acts,
+        Self::Romans,
+        Self::FirstCorinthians,
+        Self::SecondCorinthians,
+        Self::Galatians,
+        Self::Ephesians,
+        Self::Philippians,
+        Self::Colossians,
+        Self::FirstThessalonians,
+        Self::SecondThessalonians,
+        Self::FirstTimothy,
+        Self::SecondTimothy,
+        Self::Titus,
+        Self::Philemon,
+        Self::Hebrews,
+        Self::James,
+        Self::FirstPeter,
+        Self::SecondPeter,
+        Self::FirstJohn,
+        Self::SecondJohn,
+        Self::ThirdJohn,
+        Self::Jude,
+        Self::Revelation,
+    ];
+
     const OLD_TESTAMENT: [Self; 5] = [
         // TODO: update to 39
         Self::Genesis,
@@ -383,6 +454,10 @@ impl Book {
         }
         all
     };
+
+    pub fn all() -> &'static [Self] {
+        &Self::ALL
+    }
 
     pub fn old_testament() -> &'static [Self] {
         &Self::OLD_TESTAMENT

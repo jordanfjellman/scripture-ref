@@ -144,7 +144,10 @@ impl TryFrom<Node> for VerseNumber {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bvc::Book, parser::Parser, parser::token_tree::Node};
+    use crate::{
+        bvc::Book,
+        parse::parser::{Parser, token_tree::Node},
+    };
 
     #[test]
     fn parse_book_of_operator() {

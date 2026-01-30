@@ -162,3 +162,9 @@ impl Spanned for Verse {
         ))
     }
 }
+
+impl std::fmt::Display for ScripturePosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get())
+    }
+}

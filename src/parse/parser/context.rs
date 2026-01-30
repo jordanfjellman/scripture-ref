@@ -1,8 +1,6 @@
 use crate::bvc::{Book, Chapter, ChapterNumber, VerseNumber};
 use crate::parse::parser::token_tree::Node;
-use crate::scripture_ref_builder::{
-    ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
-};
+use crate::refs::{ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef};
 
 #[derive(Debug, Clone, Copy)]
 struct InterpreterContext {
@@ -194,8 +192,8 @@ fn interpret_and(
     let right_ctx = ctx.reset_chapter();
     let right = interpret_with_context(right, &right_ctx)?;
     ScriptureSelectionRef::builder()
-        .add_scripture_ref(left)
-        .add_scripture_ref(right)
+        .add_selection_part(left)
+        .add_selection_part(right)
         .build()
         .map(|s| s.into())
 }
@@ -220,8 +218,8 @@ fn interpret_select(
     let left = interpret_with_context(left, &ctx)?;
     let right = interpret_with_context(right, &right_ctx)?;
     ScriptureSelectionRef::builder()
-        .add_scripture_ref(left)
-        .add_scripture_ref(right)
+        .add_selection_part(left)
+        .add_selection_part(right)
         .build()
         .map(|s| s.into())
 }
@@ -308,7 +306,7 @@ fn interpret_book(book: Book) -> Result<ScriptureRef, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::Parser;
+    use crate::parse::parser::Parser;
     fn parse_and_interpret(input: &str) -> Result<ScriptureRef, String> {
         let mut parser = Parser::new(input);
         let ast = parser.parse().map_err(|e| e.to_string())?;

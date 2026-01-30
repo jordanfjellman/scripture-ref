@@ -1,8 +1,19 @@
 mod bvc;
 mod parse;
-mod scripture_ref_builder;
+mod refs;
 
-pub use scripture_ref_builder::ScriptureRef;
+use crate::refs::ScriptureRef;
+
+#[macro_export]
+macro_rules! scripture_ref {
+    ($string:expr) => {
+        ScriptureRef::new($string)
+    };
+}
+
+pub fn validate_scripture_ref(str: &str) -> Result<(), String> {
+    ScriptureRef::new(str).map(|_| ())
+}
 
 pub struct ScriptureReferenceSeeker;
 

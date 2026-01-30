@@ -1,7 +1,7 @@
 mod bvc;
 mod canon;
 mod parse;
-mod scripture_ref_builder;
+mod refs;
 mod scripture_span;
 
 use std::str::FromStr;
@@ -9,9 +9,7 @@ use std::str::FromStr;
 use bvc::{Book, Chapter, ChapterNumber, Spanned, Verse, VerseNumber, VersePartLabel};
 use canon::{InCanon, ProtestantCanon};
 use parse::lexer::Lexer;
-use scripture_ref_builder::{
-    ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef,
-};
+use refs::{ScripturePassageRef, ScriptureRef, ScriptureSelectionRef, ScriptureVerseRef};
 use scripture_span::ScriptureSpan;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

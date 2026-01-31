@@ -4,7 +4,7 @@ use crate::bvc::Book;
 
 pub mod token;
 
-pub use token::Token;
+pub(crate) use token::Token;
 
 #[derive(thiserror::Error, miette::Diagnostic, Debug)]
 #[error("Unexpected token '{token}'")]
@@ -340,105 +340,23 @@ mod test {
         }
     }
 }
+
 #[cfg(test)]
 mod proptests {
     use super::*;
     use crate::bvc::Book;
     use proptest::prelude::*;
 
-    /// Generators module - Foundation for all property tests
-    mod generators {
-        use super::*;
-
-        /// Generate any book from the complete Bible (comprehensive coverage)
-        pub fn arb_book() -> impl Strategy<Value = Book> {
-            let books = Book::bible();
-            (0..books.len()).prop_map(move |idx| books[idx])
-        }
-
-        /// Generate specifically multi-word books
-        pub fn arb_multiword_book() -> impl Strategy<Value = Book> {
-            prop::sample::select(vec![Book::SongOfSongs])
-        }
-
-        /// Generate specifically numbered books
-        pub fn arb_numbered_book() -> impl Strategy<Value = Book> {
-            prop::sample::select(vec![Book::FirstKings, Book::ThirdJohn])
-        }
-
-        /// Generate valid numbers (1-255 for u8 range)
-        pub fn arb_number() -> impl Strategy<Value = u8> {
-            1u8..=255u8
-        }
-
-        /// Generate valid verse parts (a-d)
-        pub fn arb_verse_part() -> impl Strategy<Value = u8> {
-            b'a'..=b'd'
-        }
-
-        /// Generate punctuation characters
-        pub fn arb_punctuation_char() -> impl Strategy<Value = char> {
-            prop::sample::select(vec![':', ',', '-', ';'])
-        }
-
-        /// Generate various whitespace patterns
-        pub fn arb_whitespace() -> impl Strategy<Value = String> {
-            prop::sample::select(vec![
-                " ".to_string(),
-                "  ".to_string(),
-                "   ".to_string(),
-                "\t".to_string(),
-                " \t".to_string(),
-                "\t ".to_string(),
-                " \t ".to_string(),
-            ])
-        }
-
-        /// Generate any valid token
-        pub fn arb_token() -> impl Strategy<Value = Token> {
-            prop_oneof![
-                arb_book().prop_map(Token::Book),
-                Just(Token::Colon),
-                Just(Token::Comma),
-                Just(Token::Dash),
-                Just(Token::SemiColon),
-                Just(Token::FF),
-                arb_number().prop_map(Token::Number),
-                arb_verse_part().prop_map(Token::VersePart),
-            ]
-        }
-
-        /// Convert a token to its string representation
-        pub fn token_to_string(token: &Token) -> String {
-            match token {
-                Token::Book(b) => format!("{}", b),
-                Token::Colon => ":".to_string(),
-                Token::Comma => ",".to_string(),
-                Token::Dash => "-".to_string(),
-                Token::SemiColon => ";".to_string(),
-                Token::FF => "ff".to_string(),
-                Token::Number(n) => n.to_string(),
-                Token::VersePart(p) => (*p as char).to_string(),
-                Token::Period => ".".to_string(),
-            }
-        }
-
-        /// Generate a complete valid reference string
-        pub fn arb_simple_reference() -> impl Strategy<Value = String> {
-            (arb_book(), 1u8..=50u8, 1u8..=30u8)
-                .prop_map(|(book, chapter, verse)| format!("{} {}:{}", book, chapter, verse))
-        }
-
-        /// Generate a token sequence that requires whitespace separation
-        pub fn arb_token_sequence_with_spaces() -> impl Strategy<Value = Vec<Token>> {
-            prop::collection::vec(arb_token(), 1..10)
-        }
-    }
+    // Import all generators from the centralized testing module
+    use crate::testing::*;
 
     /// Helper functions module - Tests for extract_potential_book_name
     mod helper_functions {
         use super::*;
-        use crate::parse::lexer::extract_potential_book_name;
+        use crate::{
+            parse::lexer::extract_potential_book_name,
+            testing::book::{arb_multiword_book, arb_numbered_book},
+        };
 
         proptest! {
 
@@ -461,7 +379,7 @@ mod proptests {
 
             #[test]
             fn extract_stops_at_number_after_space(
-                book in generators::arb_multiword_book(),
+                book in arb_multiword_book(),
                 num in 1u8..=150u8
             ) {
                 let input = format!("{} {}", book, num);
@@ -472,7 +390,7 @@ mod proptests {
 
             #[test]
             fn extract_handles_numbered_book_prefixes(
-                book in generators::arb_numbered_book(),
+                book in arb_numbered_book(),
                 chapter in 1u8..=50u8
             ) {
                 let input = format!("{} {}", book, chapter);
@@ -492,12 +410,17 @@ mod proptests {
 
     /// Multi-word books module - HIGHEST PRIORITY
     mod multiword_books {
+        use crate::testing::{
+            book::{arb_multiword_book, arb_numbered_book},
+            token::arb_whitespace,
+        };
+
         use super::*;
 
         proptest! {
 
             #[test]
-            fn multiword_books_lex_correctly(book in generators::arb_multiword_book()) {
+            fn multiword_books_lex_correctly(book in arb_multiword_book()) {
                 let input = format!("{}", book);
                 let tokens: Vec<_> = Lexer::new(&input)
                     .collect::<Result<Vec<_>, _>>()
@@ -509,7 +432,7 @@ mod proptests {
 
             #[test]
             fn multiword_book_boundaries_correct(
-                book in generators::arb_multiword_book(),
+                book in arb_multiword_book(),
                 chapter in 1u8..=8u8,
                 verse in 1u8..=20u8
             ) {
@@ -527,7 +450,7 @@ mod proptests {
 
             #[test]
             fn numbered_multiword_combinations(
-                book in generators::arb_numbered_book(),
+                book in arb_numbered_book(),
                 chapter in 1u8..=22u8,
                 verse in 1u8..=30u8
             ) {
@@ -545,7 +468,7 @@ mod proptests {
 
             #[test]
             fn multiword_books_with_ranges(
-                book in generators::arb_multiword_book(),
+                book in arb_multiword_book(),
                 chapter in 1u8..=8u8,
                 verse1 in 1u8..=10u8,
                 verse2 in 11u8..=20u8
@@ -565,7 +488,7 @@ mod proptests {
 
             #[test]
             fn multiword_books_with_selections(
-                book in generators::arb_multiword_book(),
+                book in arb_multiword_book(),
                 ch1 in 1u8..=4u8,
                 v1 in 1u8..=10u8,
                 ch2 in 5u8..=8u8,
@@ -600,9 +523,9 @@ mod proptests {
 
             #[test]
             fn complex_multiword_whitespace_variations(
-                book in generators::arb_multiword_book(),
-                ws1 in generators::arb_whitespace(),
-                ws2 in generators::arb_whitespace()
+                book in arb_multiword_book(),
+                ws1 in arb_whitespace(),
+                ws2 in arb_whitespace()
             ) {
                 let input1 = format!("{} 1:2", book);
                 let input2 = format!("{}{}1:2", book, ws1);
@@ -623,12 +546,14 @@ mod proptests {
 
     /// All books module - Comprehensive coverage of every book
     mod all_books {
+        use crate::testing::book::arb_book;
+
         use super::*;
 
         proptest! {
 
             #[test]
-            fn all_books_lex_from_canonical_name(book in generators::arb_book()) {
+            fn all_books_lex_from_canonical_name(book in arb_book()) {
                 let input = format!("{}", book);
                 let tokens: Vec<_> = Lexer::new(&input)
                     .collect::<Result<Vec<_>, _>>()
@@ -639,7 +564,7 @@ mod proptests {
             }
 
             #[test]
-            fn all_books_in_simple_references(book in generators::arb_book()) {
+            fn all_books_in_simple_references(book in arb_book()) {
                 let input = format!("{} 1:1", book);
                 let tokens: Vec<_> = Lexer::new(&input)
                     .collect::<Result<Vec<_>, _>>()
@@ -653,7 +578,7 @@ mod proptests {
             }
 
             #[test]
-            fn all_books_case_insensitive(book in generators::arb_book()) {
+            fn all_books_case_insensitive(book in arb_book()) {
                 let canonical = format!("{}", book);
                 let lowercase = canonical.to_lowercase();
                 let uppercase = canonical.to_uppercase();
@@ -686,12 +611,17 @@ mod proptests {
 
     /// Numbers module - Validate number lexing
     mod numbers {
+        use crate::testing::{
+            book::arb_book,
+            token::{arb_number, arb_whitespace},
+        };
+
         use super::*;
 
         proptest! {
 
             #[test]
-            fn all_valid_numbers_lex(n in generators::arb_number()) {
+            fn all_valid_numbers_lex(n in arb_number()) {
                 let input = n.to_string();
                 let tokens: Vec<_> = Lexer::new(&input)
                     .collect::<Result<Vec<_>, _>>()
@@ -714,9 +644,9 @@ mod proptests {
 
             #[test]
             fn adjacent_numbers_with_whitespace(
-                n1 in generators::arb_number(),
-                n2 in generators::arb_number(),
-                ws in generators::arb_whitespace()
+                n1 in arb_number(),
+                n2 in arb_number(),
+                ws in arb_whitespace()
             ) {
                 let input = format!("{}{}{}", n1, ws, n2);
                 let tokens: Vec<_> = Lexer::new(&input)
@@ -730,8 +660,8 @@ mod proptests {
 
             #[test]
             fn numbers_after_books(
-                book in generators::arb_book(),
-                n in generators::arb_number()
+                book in arb_book(),
+                n in arb_number()
             ) {
                 let input = format!("{} {}", book, n);
                 let tokens: Vec<_> = Lexer::new(&input)
@@ -762,6 +692,8 @@ mod proptests {
 
     /// Round-trip module - Test lexing invertibility
     mod roundtrip {
+        use crate::testing::{book::arb_book, token::arb_number};
+
         use super::*;
 
         proptest! {
@@ -774,7 +706,7 @@ mod proptests {
                 Just(Token::SemiColon),
                 Just(Token::FF),
             ]) {
-                let s = generators::token_to_string(&token);
+                let s = &token.to_string();
                 let tokens: Vec<_> = Lexer::new(&s)
                     .collect::<Result<Vec<_>, _>>()
                     .unwrap();
@@ -784,7 +716,7 @@ mod proptests {
             }
 
             #[test]
-            fn number_roundtrip(n in generators::arb_number()) {
+            fn number_roundtrip(n in arb_number()) {
                 let s = n.to_string();
                 let tokens: Vec<_> = Lexer::new(&s)
                     .collect::<Result<Vec<_>, _>>()
@@ -795,7 +727,7 @@ mod proptests {
             }
 
             #[test]
-            fn book_roundtrip(book in generators::arb_book()) {
+            fn book_roundtrip(book in arb_book()) {
                 let s = format!("{}", book);
                 let tokens: Vec<_> = Lexer::new(&s)
                     .collect::<Result<Vec<_>, _>>()
@@ -807,7 +739,7 @@ mod proptests {
 
             #[test]
             fn token_sequence_roundtrip(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=50u8,
                 verse in 1u8..=30u8
             ) {
@@ -819,7 +751,7 @@ mod proptests {
 
                 // Reconstruct
                 let reconstructed = tokens.iter()
-                    .map(|t| generators::token_to_string(t))
+                    .map(|t| t.to_string())
                     .collect::<Vec<_>>()
                     .join(" ");
 
@@ -835,17 +767,23 @@ mod proptests {
 
     /// Whitespace module - Test whitespace handling
     mod whitespace {
+        use crate::testing::{
+            book::arb_book,
+            reference::arb_simple_reference,
+            token::{arb_number, arb_whitespace},
+        };
+
         use super::*;
 
         proptest! {
 
             #[test]
             fn whitespace_between_tokens_normalized(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=50u8,
                 verse in 1u8..=30u8,
-                ws1 in generators::arb_whitespace(),
-                ws2 in generators::arb_whitespace()
+                ws1 in arb_whitespace(),
+                ws2 in arb_whitespace()
             ) {
                 let input1 = format!("{} {}:{}", book, chapter, verse);
                 let input2 = format!("{}{}{}{}:{}", book, ws1, chapter, ws2, verse);
@@ -862,8 +800,8 @@ mod proptests {
 
             #[test]
             fn leading_whitespace_ignored(
-                input in generators::arb_simple_reference(),
-                ws in generators::arb_whitespace()
+                input in arb_simple_reference(),
+                ws in arb_whitespace()
             ) {
                 let with_leading = format!("{}{}", ws, input);
 
@@ -879,8 +817,8 @@ mod proptests {
 
             #[test]
             fn trailing_whitespace_ignored(
-                input in generators::arb_simple_reference(),
-                ws in generators::arb_whitespace()
+                input in arb_simple_reference(),
+                ws in arb_whitespace()
             ) {
                 let with_trailing = format!("{}{}", input, ws);
 
@@ -896,8 +834,8 @@ mod proptests {
 
             #[test]
             fn multiple_spaces_vs_single_space(
-                book in generators::arb_book(),
-                n in generators::arb_number()
+                book in arb_book(),
+                n in arb_number()
             ) {
                 let single = format!("{} {}", book, n);
                 let multiple = format!("{}   {}", book, n);
@@ -914,8 +852,8 @@ mod proptests {
 
             #[test]
             fn tabs_vs_spaces(
-                book in generators::arb_book(),
-                n in generators::arb_number()
+                book in arb_book(),
+                n in arb_number()
             ) {
                 let spaces = format!("{} {}", book, n);
                 let tabs = format!("{}\t{}", book, n);
@@ -934,12 +872,14 @@ mod proptests {
 
     /// Punctuation module - Test punctuation tokens
     mod punctuation {
+        use crate::testing::token::arb_punctuation_char;
+
         use super::*;
 
         proptest! {
 
             #[test]
-            fn all_punctuation_lexes(punct in generators::arb_punctuation_char()) {
+            fn all_punctuation_lexes(punct in arb_punctuation_char()) {
                 let input = punct.to_string();
                 let tokens: Vec<_> = Lexer::new(&input)
                     .collect::<Result<Vec<_>, _>>()
@@ -991,12 +931,14 @@ mod proptests {
 
     /// Verse parts module - Test verse part (a-d) tokens
     mod verse_parts {
+        use crate::testing::{book::arb_book, token::arb_verse_part};
+
         use super::*;
 
         proptest! {
 
             #[test]
-            fn valid_verse_parts_lex(part in generators::arb_verse_part()) {
+            fn valid_verse_parts_lex(part in arb_verse_part()) {
                 let input = (part as char).to_string();
                 let tokens: Vec<_> = Lexer::new(&input)
                     .collect::<Result<Vec<_>, _>>()
@@ -1008,10 +950,10 @@ mod proptests {
 
             #[test]
             fn verse_parts_in_references(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=10u8,
                 verse in 1u8..=20u8,
-                part in generators::arb_verse_part()
+                part in arb_verse_part()
             ) {
                 let input = format!("{} {}:{}{}", book, chapter, verse, part as char);
                 let tokens: Vec<_> = Lexer::new(&input)
@@ -1028,12 +970,12 @@ mod proptests {
 
             #[test]
             fn verse_parts_in_ranges(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=10u8,
                 v1 in 1u8..=10u8,
                 v2 in 11u8..=20u8,
-                p1 in generators::arb_verse_part(),
-                p2 in generators::arb_verse_part()
+                p1 in arb_verse_part(),
+                p2 in arb_verse_part()
             ) {
                 let input = format!("{} {}:{}{}-{}{}",
                     book, chapter, v1, p1 as char, v2, p2 as char);
@@ -1064,6 +1006,8 @@ mod proptests {
 
     /// Following module - Test FF token
     mod following {
+        use crate::testing::book::arb_book;
+
         use super::*;
 
         proptest! {
@@ -1080,7 +1024,7 @@ mod proptests {
 
             #[test]
             fn ff_in_references(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=10u8,
                 verse in 1u8..=20u8
             ) {
@@ -1186,12 +1130,14 @@ mod proptests {
 
     /// Lexer state module - Test internal lexer consistency
     mod lexer_state {
+        use crate::testing::reference::arb_simple_reference;
+
         use super::*;
 
         proptest! {
 
             #[test]
-            fn current_byte_tracking_accurate(input in generators::arb_simple_reference()) {
+            fn current_byte_tracking_accurate(input in arb_simple_reference()) {
                 let mut lexer = Lexer::new(&input);
                 let original_len = input.len();
 
@@ -1205,7 +1151,7 @@ mod proptests {
             }
 
             #[test]
-            fn rest_field_tracking_accurate(input in generators::arb_simple_reference()) {
+            fn rest_field_tracking_accurate(input in arb_simple_reference()) {
                 let mut lexer = Lexer::new(&input);
                 let mut total_consumed = 0;
 
@@ -1217,7 +1163,7 @@ mod proptests {
             }
 
             #[test]
-            fn peek_doesnt_consume_input(input in generators::arb_simple_reference()) {
+            fn peek_doesnt_consume_input(input in arb_simple_reference()) {
                 let mut lexer = Lexer::new(&input);
 
                 // Peek twice should return the same value
@@ -1246,7 +1192,7 @@ mod proptests {
             }
 
             #[test]
-            fn peek_and_next_consistent(input in generators::arb_simple_reference()) {
+            fn peek_and_next_consistent(input in arb_simple_reference()) {
                 let mut lexer = Lexer::new(&input);
 
                 loop {
@@ -1277,7 +1223,7 @@ mod proptests {
             }
 
             #[test]
-            fn lexer_is_deterministic(input in generators::arb_simple_reference()) {
+            fn lexer_is_deterministic(input in arb_simple_reference()) {
                 let tokens1 = Lexer::new(&input).collect::<Result<Vec<_>, _>>();
                 let tokens2 = Lexer::new(&input).collect::<Result<Vec<_>, _>>();
 
@@ -1293,13 +1239,15 @@ mod proptests {
 
     /// Integration module - Complex end-to-end scenarios
     mod integration {
+        use crate::testing::{book::arb_book, token::arb_verse_part};
+
         use super::*;
 
         proptest! {
 
             #[test]
             fn complete_references_lex_correctly(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=50u8,
                 v1 in 1u8..=15u8,
                 v2 in 16u8..=30u8
@@ -1319,8 +1267,8 @@ mod proptests {
 
             #[test]
             fn complex_multibook_references(
-                book1 in generators::arb_book(),
-                book2 in generators::arb_book(),
+                book1 in arb_book(),
+                book2 in arb_book(),
                 ch1 in 1u8..=20u8,
                 ch2 in 1u8..=20u8,
                 v1 in 1u8..=15u8,
@@ -1338,12 +1286,12 @@ mod proptests {
 
             #[test]
             fn ranges_with_verse_parts(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=10u8,
                 v1 in 1u8..=10u8,
                 v2 in 11u8..=20u8,
-                p1 in generators::arb_verse_part(),
-                p2 in generators::arb_verse_part()
+                p1 in arb_verse_part(),
+                p2 in arb_verse_part()
             ) {
                 let input = format!("{} {}:{}{}-{}{}",
                     book, chapter, v1, p1 as char, v2, p2 as char);
@@ -1357,7 +1305,7 @@ mod proptests {
 
             #[test]
             fn selections_with_multiple_ranges(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=10u8
             ) {
                 let input = format!("{} {}:1-3, 5-7, 10", book, chapter);
@@ -1377,11 +1325,11 @@ mod proptests {
 
             #[test]
             fn all_token_types_together(
-                book in generators::arb_book(),
+                book in arb_book(),
                 chapter in 1u8..=10u8,
                 v1 in 1u8..=10u8,
                 v2 in 11u8..=20u8,
-                part in generators::arb_verse_part()
+                part in arb_verse_part()
             ) {
                 // Mix: Book, Numbers, Colon, Dash, VersePart, Comma, FF
                 let input = format!("{} {}:{}{}-{}, {}ff",

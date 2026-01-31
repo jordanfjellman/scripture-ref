@@ -19,7 +19,7 @@ pub enum ScriptureRef {
 
 impl ScriptureRef {
     pub fn new(string: &str) -> Result<Self, String> {
-        Ok(Self::from_str(string)?)
+        Self::from_str(string)
     }
 }
 
